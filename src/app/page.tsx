@@ -59,7 +59,7 @@ export default function Home() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={sparkData1}>
                   <Area type="monotone" dataKey="value" stroke="#2563eb" fill="#3b82f6" fillOpacity={0.2} strokeWidth={2} />
-                  <Tooltip cursor={false} content={<></>} />
+                  <Tooltip cursor={false} content={() => null} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -83,7 +83,7 @@ export default function Home() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={sparkData2}>
                   <Area type="monotone" dataKey="value" stroke="#10b981" fill="#10b981" fillOpacity={0.2} strokeWidth={2} />
-                  <Tooltip cursor={false} content={<></>} />
+                  <Tooltip cursor={false} content={() => null} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -107,7 +107,7 @@ export default function Home() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={sparkData3}>
                   <Area type="monotone" dataKey="value" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} strokeWidth={2} />
-                  <Tooltip cursor={false} content={<></>} />
+                  <Tooltip cursor={false} content={() => null} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -131,7 +131,7 @@ export default function Home() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={sparkData4}>
                   <Area type="monotone" dataKey="value" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} strokeWidth={2} />
-                  <Tooltip cursor={false} content={<></>} />
+                  <Tooltip cursor={false} content={() => null} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -148,22 +148,22 @@ export default function Home() {
             <div className="h-[200px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={visionData}>
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="#888888" 
-                    fontSize={10} 
-                    tickLine={false} 
-                    axisLine={false} 
+                  <XAxis
+                    dataKey="name"
+                    stroke="#888888"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
                   />
-                  <YAxis 
-                    stroke="#888888" 
-                    fontSize={10} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(value) => `R$${value/1000}k`} 
+                  <YAxis
+                    stroke="#888888"
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => `R$${value / 1000}k`}
                   />
-                  <Tooltip 
-                    cursor={{fill: 'transparent'}}
+                  <Tooltip
+                    cursor={{ fill: 'transparent' }}
                     contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
                   />
                   <Bar dataKey="total" fill="#0f172a" radius={[4, 4, 0, 0]} />
@@ -180,9 +180,9 @@ export default function Home() {
           <CardContent className="pb-2">
             {/* Added a small chart for activity volume */}
             <div className="h-[40px] mb-4 w-full">
-               <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={[
-                  {v:10}, {v:20}, {v:15}, {v:30}, {v:25}, {v:40}, {v:35}, {v:20}, {v:10}, {v:25}
+                  { v: 10 }, { v: 20 }, { v: 15 }, { v: 30 }, { v: 25 }, { v: 40 }, { v: 35 }, { v: 20 }, { v: 10 }, { v: 25 }
                 ]}>
                   <Bar dataKey="v" fill="#e2e8f0" radius={[2, 2, 0, 0]} />
                 </BarChart>
