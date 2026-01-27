@@ -6,6 +6,7 @@ import {
     flexRender,
     getCoreRowModel,
     useReactTable,
+    CellContext,
 } from "@tanstack/react-table"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -45,7 +46,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete }: ItemsTableProps)
         const baseCols = columns.map((col) => ({
             accessorKey: col.id,
             header: col.label,
-            cell: ({ getValue }) => {
+            cell: ({ getValue }: CellContext<any, unknown>) => {
                 const value = getValue() as string | number | null | undefined
 
                 if (col.type === "currency") {
@@ -85,7 +86,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete }: ItemsTableProps)
             baseCols.push({
                 id: "actions",
                 header: "",
-                cell: ({ row }) => (
+                cell: ({ row }: CellContext<any, unknown>) => (
                     <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {onEdit && (
                             <Button
