@@ -6,9 +6,14 @@ import { LayoutDashboard, FileText, Settings, Database } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { useService } from "@/contexts/ServiceContext"
 
 export function Sidebar() {
     const pathname = usePathname()
+    const { services } = useService()
+
+    // Sort services alphabetically just to be sure, though DB query handles it
+    const sortedServices = [...services].sort((a, b) => a.name.localeCompare(b.name))
 
     const links = [
         {
@@ -16,11 +21,11 @@ export function Sidebar() {
             label: "Dashboard",
             icon: LayoutDashboard,
         },
-        {
-            href: "/convenios",
-            label: "Convênios",
-            icon: Database,
-        },
+        ...sortedServices.map(service => ({
+            href: `/servicos/${service.slug}`,
+            label: service.name,
+            icon: Database, // Default icon, could be dynamic later if icon string is mapped to Lucide icons
+        })),
         {
             href: "/configuracoes",
             label: "Configurações",
@@ -66,3 +71,4 @@ export function Sidebar() {
         </div>
     )
 }
+

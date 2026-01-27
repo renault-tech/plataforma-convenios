@@ -1,7 +1,15 @@
 "use client"
 
+import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, FileText, AlertCircle, Activity } from "lucide-react"
+import { useService } from "@/contexts/ServiceContext"
+import { createClient } from "@/lib/supabase/client"
+import { Button } from "@/components/ui/button" // Ensure Button is imported
+import { cn } from "@/lib/utils"
+import { format, subMonths, isAfter, isBefore, addDays, parseISO } from "date-fns"
+import { ptBR } from "date-fns/locale"
+
 import {
   AreaChart,
   Area,
@@ -13,52 +21,173 @@ import {
   Bar,
 } from "recharts"
 
-const visionData = [
-  { name: "Jan", total: 15000 },
-  { name: "Fev", total: 22000 },
-  { name: "Mar", total: 18000 },
-  { name: "Abr", total: 28000 },
-  { name: "Mai", total: 23000 },
-  { name: "Jun", total: 32000 },
-  { name: "Jul", total: 45000 },
-]
-
-const sparkData1 = [
-  { value: 12 }, { value: 15 }, { value: 18 }, { value: 14 }, { value: 22 }, { value: 19 }, { value: 24 }
-]
-const sparkData2 = [
-  { value: 400 }, { value: 300 }, { value: 450 }, { value: 380 }, { value: 420 }, { value: 460 }, { value: 480 }
-]
-const sparkData3 = [
-  { value: 5 }, { value: 7 }, { value: 4 }, { value: 8 }, { value: 6 }, { value: 9 }, { value: 7 }
-]
-const sparkData4 = [
-  { value: 65 }, { value: 68 }, { value: 72 }, { value: 70 }, { value: 75 }, { value: 78 }, { value: 89 }
-]
-
 export default function Home() {
+  const { services, activeService, setActiveService } = useService()
+  const [dashboardData, setDashboardData] = useState({
+    totalCount: 0,
+    totalValue: 0,
+    expiringCount: 0,
+    activeCount: 0,
+    monthlyData: [] as any[],
+    recentActivity: [] as any[]
+  })
+  const [isLoadingData, setIsLoadingData] = useState(false)
+
+  const supabase = createClient()
+
+  // Load data when activeService changes
+  useEffect(() => {
+    async function loadDashboardData() {
+      if (!activeService) return
+      setIsLoadingData(true)
+
+      try {
+        const { data: items, error } = await supabase
+          .from('items')
+          .select('*')
+          .eq('service_id', activeService.id)
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        if (!items) return
+
+        // 1. Identify columns for metrics
+        const currencyCol = activeService.columns_config?.find((c: any) => c.type === 'currency')?.id
+        const dateCol = activeService.columns_config?.find((c: any) => c.type === 'date')?.id // For expiration
+        const statusCol = activeService.columns_config?.find((c: any) => c.type === 'status')?.id
+
+        // 2. Calculate Metrics
+        let totalVal = 0
+        let expiring = 0
+        let active = 0
+        const today = new Date()
+        const next30Days = addDays(today, 30)
+
+        items.forEach(item => {
+          const itemData = item.data || {}
+
+          // Value
+          if (currencyCol && itemData[currencyCol]) {
+            totalVal += Number(itemData[currencyCol]) || 0
+          }
+
+          // Expiration (items with date between now and 30 days)
+          if (dateCol && itemData[dateCol]) {
+            const itemDate = parseISO(itemData[dateCol])
+            if (isAfter(itemDate, today) && isBefore(itemDate, next30Days)) {
+              expiring++
+            }
+          }
+
+          // Active Status (naive check for 'Ativo' or 'Em Execução')
+          if (statusCol && itemData[statusCol]) {
+            const status = String(itemData[statusCol]).toLowerCase()
+            if (status.includes('ativo') || status.includes('execução') || status.includes('andamento')) {
+              active++
+            }
+          }
+        })
+
+        // 3. Monthly Data (Last 6 months)
+        const monthsMap = new Map()
+        for (let i = 5; i >= 0; i--) {
+          const d = subMonths(new Date(), i)
+          const key = format(d, 'MMM', { locale: ptBR })
+          monthsMap.set(key, 0)
+        }
+
+        // Populate monthly data - grouping by created_at 
+        // (Ideally we would use a date column from the item if available, but created_at is safe)
+        items.forEach(item => {
+          const d = parseISO(item.created_at)
+          const key = format(d, 'MMM', { locale: ptBR })
+          if (monthsMap.has(key)) {
+            monthsMap.set(key, monthsMap.get(key) + 1) // Count items
+            // Alternatively sum value if currencyCol exists? 
+            // Let's stick to Count for "Overview" bar chart as generic behavior
+          }
+        })
+
+        const monthlyData = Array.from(monthsMap.entries()).map(([name, total]) => ({ name, total }))
+
+        // 4. Recent Activity (Just map the simplified items)
+        const recentActivity = items.slice(0, 5).map(item => ({
+          id: item.id,
+          // Try to find a 'title' or 'object' or first text column
+          title: item.data[activeService.columns_config?.find((c: any) => c.type === 'text')?.id || ''] || 'Item sem título',
+          status: statusCol ? item.data[statusCol] : 'Registrado',
+          created_at: item.created_at
+        }))
+
+        setDashboardData({
+          totalCount: items.length,
+          totalValue: totalVal,
+          expiringCount: expiring,
+          activeCount: active,
+          monthlyData,
+          recentActivity
+        })
+
+      } catch (e) {
+        console.error("Error loading dashboard data", e)
+      } finally {
+        setIsLoadingData(false)
+      }
+    }
+
+    loadDashboardData()
+  }, [activeService, supabase])
+
+
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
+
+          {/* Service Switcher Buttons */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full no-scrollbar">
+            {services.map(service => (
+              <Button
+                key={service.id}
+                variant={activeService?.id === service.id ? "default" : "outline"}
+                size="sm"
+                className={cn(
+                  "rounded-full h-8 text-xs font-medium transition-all",
+                  activeService?.id === service.id
+                    ? "text-white shadow-sm hover:opacity-90"
+                    : "text-muted-foreground hover:bg-slate-100"
+                )}
+                style={activeService?.id === service.id ? { backgroundColor: service.primary_color } : {}}
+                onClick={() => setActiveService(service)}
+              >
+                {service.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1 */}
+        {/* Card 1: Total Count */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium">
-              Total de Convênios
+              Total de {activeService?.name || 'Itens'}
             </CardTitle>
             <FileText className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="text-xl font-bold">124</div>
+            <div className="text-xl font-bold">{dashboardData.totalCount}</div>
             <p className="text-[10px] text-muted-foreground mb-2">
-              +12 novos este mês
+              Registrados
             </p>
+            {/* Keeping visual charts as placeholders for aesthetic consistency */}
             <div className="h-[35px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={sparkData1}>
-                  <Area type="monotone" dataKey="value" stroke="#2563eb" fill="#3b82f6" fillOpacity={0.2} strokeWidth={2} />
+                <AreaChart data={dashboardData.monthlyData.length ? dashboardData.monthlyData : [{ value: 0 }]}>
+                  <Area type="monotone" dataKey="total" stroke="#2563eb" fill="#3b82f6" fillOpacity={0.2} strokeWidth={2} />
                   <Tooltip cursor={false} content={() => null} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -66,7 +195,7 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Card 2 */}
+        {/* Card 2: Total Value */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium">
@@ -75,13 +204,15 @@ export default function Home() {
             <DollarSign className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="text-xl font-bold">R$ 45.2M</div>
+            <div className="text-xl font-bold">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(dashboardData.totalValue)}
+            </div>
             <p className="text-[10px] text-muted-foreground mb-2">
-              +2.1% vs mês anterior
+              Somatório financeiro
             </p>
             <div className="h-[35px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={sparkData2}>
+                <AreaChart data={[{ value: 100 }, { value: 120 }, { value: dashboardData.totalValue }]}>
                   <Area type="monotone" dataKey="value" stroke="#10b981" fill="#10b981" fillOpacity={0.2} strokeWidth={2} />
                   <Tooltip cursor={false} content={() => null} />
                 </AreaChart>
@@ -90,7 +221,7 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Card 3 */}
+        {/* Card 3: Expiring */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium">
@@ -99,13 +230,14 @@ export default function Home() {
             <AlertCircle className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="text-xl font-bold">7</div>
+            <div className="text-xl font-bold">{dashboardData.expiringCount}</div>
             <p className="text-[10px] text-muted-foreground mb-2">
               Requer atenção
             </p>
             <div className="h-[35px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={sparkData3}>
+                {/* Dummy trend for visual consistency */}
+                <AreaChart data={[{ value: 5 }, { value: dashboardData.expiringCount }, { value: 2 }]}>
                   <Area type="monotone" dataKey="value" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} strokeWidth={2} />
                   <Tooltip cursor={false} content={() => null} />
                 </AreaChart>
@@ -114,7 +246,7 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Card 4 */}
+        {/* Card 4: Active Status */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium">
@@ -123,13 +255,13 @@ export default function Home() {
             <Activity className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="text-xl font-bold">89</div>
+            <div className="text-xl font-bold">{dashboardData.activeCount}</div>
             <p className="text-[10px] text-muted-foreground mb-2">
-              71% do portfólio
+              {dashboardData.totalCount > 0 ? Math.round((dashboardData.activeCount / dashboardData.totalCount) * 100) : 0}% do portfólio
             </p>
             <div className="h-[35px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={sparkData4}>
+                <AreaChart data={[{ value: 10 }, { value: 30 }, { value: dashboardData.activeCount }]}>
                   <Area type="monotone" dataKey="value" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} strokeWidth={2} />
                   <Tooltip cursor={false} content={() => null} />
                 </AreaChart>
@@ -142,33 +274,38 @@ export default function Home() {
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Visão Geral</CardTitle>
+            <CardTitle className="text-base">Novos Itens (6 Meses)</CardTitle>
           </CardHeader>
           <CardContent className="pl-0 pb-2">
             <div className="h-[200px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={visionData}>
-                  <XAxis
-                    dataKey="name"
-                    stroke="#888888"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="#888888"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `R$${value / 1000}k`}
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'transparent' }}
-                    contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-                  />
-                  <Bar dataKey="total" fill="#0f172a" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {dashboardData.monthlyData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dashboardData.monthlyData}>
+                    <XAxis
+                      dataKey="name"
+                      stroke="#888888"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="#888888"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'transparent' }}
+                      contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                    />
+                    <Bar dataKey="total" fill={activeService?.primary_color || "#0f172a"} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  Sem dados suficientes
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -178,32 +315,26 @@ export default function Home() {
             <CardTitle className="text-base">Atividades Recentes</CardTitle>
           </CardHeader>
           <CardContent className="pb-2">
-            {/* Added a small chart for activity volume */}
-            <div className="h-[40px] mb-4 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[
-                  { v: 10 }, { v: 20 }, { v: 15 }, { v: 30 }, { v: 25 }, { v: 40 }, { v: 35 }, { v: 20 }, { v: 10 }, { v: 25 }
-                ]}>
-                  <Bar dataKey="v" fill="#e2e8f0" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
             <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center">
-                  <div className="ml-4 space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      Atualização de Status
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Convênio #2024/{i}0 desaprovado.
-                    </p>
+              {dashboardData.recentActivity.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma atividade recente.</p>
+              ) : (
+                dashboardData.recentActivity.map((item) => (
+                  <div key={item.id} className="flex items-center">
+                    <div className="ml-4 space-y-1 overflow-hidden">
+                      <p className="text-sm font-medium leading-none truncate w-[200px]" title={item.title}>
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Status: {item.status}
+                      </p>
+                    </div>
+                    <div className="ml-auto font-medium text-[10px] text-muted-foreground whitespace-nowrap">
+                      {format(parseISO(item.created_at), "dd/MM HH:mm")}
+                    </div>
                   </div>
-                  <div className="ml-auto font-medium text-[10px] text-muted-foreground">
-                    Há {i}h
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
