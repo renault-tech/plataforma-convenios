@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog"
 import { useService, Service } from "@/contexts/ServiceContext"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { cn, getContrastYIQ } from "@/lib/utils"
 
 // --- Types ---
 type ColumnType = 'text' | 'number' | 'date' | 'currency' | 'status' | 'boolean'
@@ -46,7 +46,7 @@ interface ServiceData {
 }
 
 export default function ConfiguracoesPage() {
-    const { services, refreshServices } = useService()
+    const { services, refreshServices, updateService } = useService()
     const [activeTab, setActiveTab] = useState<string>("new")
     const [isLoading, setIsLoading] = useState(false)
 
@@ -63,6 +63,17 @@ export default function ConfiguracoesPage() {
         setActiveTab(value)
     }
 
+    // New handler for updating color
+    const handleUpdateColor = async (serviceId: string, newColor: string) => {
+        try {
+            await updateService(serviceId, { primary_color: newColor })
+            toast.success("Cor atualizada!")
+        } catch (e) {
+            toast.error("Erro ao atualizar cor.")
+            console.error(e)
+        }
+    }
+
     return (
         <div className="container mx-auto p-6 space-y-8">
             {/* Header & Tabs */}
@@ -72,22 +83,30 @@ export default function ConfiguracoesPage() {
 
                     {/* Service Tabs (Inline with Title) */}
                     <div className="flex flex-wrap items-center gap-2">
-                        {services.map((service) => (
-                            <Button
-                                key={service.id}
-                                variant={activeTab === service.id ? "default" : "outline"}
-                                className={cn(
-                                    "h-9 px-4 rounded-full transition-colors font-medium",
-                                    activeTab === service.id
-                                        ? "text-white hover:opacity-90 border-transparent shadow-sm"
-                                        : "hover:bg-slate-100 text-slate-600 border-slate-200"
-                                )}
-                                style={activeTab === service.id ? { backgroundColor: service.primary_color } : {}}
-                                onClick={() => handleTabChange(service.id)}
-                            >
-                                {service.name}
-                            </Button>
-                        ))}
+                        {services.map((service) => {
+                            const isActive = activeTab === service.id
+                            const textColor = isActive ? getContrastYIQ(service.primary_color) : undefined
+
+                            return (
+                                <Button
+                                    key={service.id}
+                                    variant={isActive ? "default" : "outline"}
+                                    className={cn(
+                                        "h-9 px-4 rounded-full transition-colors font-medium",
+                                        isActive
+                                            ? "hover:opacity-90 border-transparent shadow-sm"
+                                            : "hover:bg-slate-100 text-slate-600 border-slate-200"
+                                    )}
+                                    style={isActive ? {
+                                        backgroundColor: service.primary_color,
+                                        color: textColor
+                                    } : {}}
+                                    onClick={() => handleTabChange(service.id)}
+                                >
+                                    {service.name}
+                                </Button>
+                            )
+                        })}
                         <Button
                             variant={activeTab === "new" ? "default" : "secondary"}
                             className={cn(
@@ -111,6 +130,7 @@ export default function ConfiguracoesPage() {
                     <ServiceConfigView
                         serviceId={activeTab}
                         key={activeTab} // Force re-mount on tab change to reset state
+                        onColorChange={(color) => handleUpdateColor(activeTab, color)}
                     />
                 )}
             </div>
@@ -185,9 +205,32 @@ function CreateServiceForm({ onSuccess }: { onSuccess: (id: string) => void }) {
     )
 }
 
-function ServiceConfigView({ serviceId }: { serviceId: string }) {
+function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, onColorChange?: (color: string) => void }) {
     const { services, updateService, deleteService } = useService()
     const service = services.find(s => s.id === serviceId)
+
+    // Local state for color picker to prevent toast spam
+    const [localColor, setLocalColor] = useState(service?.primary_color || "#000000")
+
+    // Sync local color if service changes externally
+    useEffect(() => {
+        if (service) {
+            setLocalColor(service.primary_color)
+        }
+    }, [service?.primary_color])
+
+    // Debounce the save operation
+    useEffect(() => {
+        if (!service || localColor === service.primary_color) return
+
+        const timer = setTimeout(() => {
+            if (onColorChange) {
+                onColorChange(localColor)
+            }
+        }, 800) // 800ms delay to ensure user finished picking
+
+        return () => clearTimeout(timer)
+    }, [localColor, service, onColorChange])
 
     // RHF for managing the active columns list (robust array manipulation)
     const { control, handleSubmit, reset } = useForm<{ columns_config: ColumnConfig[] }>({
@@ -328,13 +371,33 @@ function ServiceConfigView({ serviceId }: { serviceId: string }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left: Add/Edit Column Form */}
                 <Card className={editingIndex !== null ? "border-blue-500 ring-1 ring-blue-500" : ""}>
-                    <CardHeader>
-                        <CardTitle>{editingIndex !== null ? "Editar Coluna" : "Adicionar Nova Coluna"}</CardTitle>
-                        <CardDescription>
-                            {editingIndex !== null ? "Editando campo existente." : "Crie novos campos para o formulário e tabela."}
-                        </CardDescription>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <div className="space-y-1">
+                            <CardTitle>{editingIndex !== null ? "Editar Coluna" : "Adicionar Nova Coluna"}</CardTitle>
+                            <CardDescription>
+                                {editingIndex !== null ? "Editando campo existente." : "Crie novos campos para o formulário e tabela."}
+                            </CardDescription>
+                        </div>
+
+                        {/* 🎨 COLOR PICKER BUTTON (Native) */}
+                        {service && (
+                            <div className="relative h-8 w-8 overflow-hidden rounded-full border-2 shadow-sm cursor-pointer transition-transform hover:scale-105"
+                                style={{
+                                    backgroundColor: localColor,
+                                    borderColor: getContrastYIQ(localColor) === 'black' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'
+                                }}
+                                title="Alterar cor do serviço"
+                            >
+                                <Input
+                                    type="color"
+                                    value={localColor}
+                                    className="absolute -top-2 -left-2 h-16 w-16 cursor-pointer opacity-0"
+                                    onChange={(e) => setLocalColor(e.target.value)}
+                                />
+                            </div>
+                        )}
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-4 pt-4">
                         <div className="space-y-2">
                             <Label>Nome do Campo</Label>
                             <Input

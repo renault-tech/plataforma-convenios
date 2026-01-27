@@ -10,7 +10,7 @@ import { useService } from "@/contexts/ServiceContext"
 
 export function Sidebar() {
     const pathname = usePathname()
-    const { services } = useService()
+    const { services, activeService: globalActiveService } = useService()
 
     // Sort services alphabetically just to be sure, though DB query handles it
     const sortedServices = [...services].sort((a, b) => a.name.localeCompare(b.name))
@@ -44,19 +44,60 @@ export function Sidebar() {
                     {links.map((link) => {
                         const Icon = link.icon
                         const isActive = pathname === link.href
+
+                        // Determine active color
+                        let activeStyle = {}
+                        let activeClass = ""
+
+                        const activeService = services.find(s => s.name === link.label)
+
+                        // Case 1: Active Service Link
+                        if (isActive && activeService?.primary_color) {
+                            activeStyle = {
+                                backgroundColor: activeService.primary_color,
+                                color: '#ffffff', // Force white text on colored background
+                                borderColor: activeService.primary_color
+                            }
+                            activeClass = "hover:brightness-110" // Lighten slightly on hover
+                        }
+                        // Case 2: Dashboard Link (Home) - Default style + Dot indicator if service active
+                        else if (link.href === "/") {
+                            if (isActive) {
+                                activeClass = "bg-slate-800 text-blue-400 hover:bg-slate-800 hover:text-blue-400"
+                            } else {
+                                activeClass = "hover:bg-slate-800 hover:text-slate-50"
+                            }
+                        }
+                        // Case 3: Default Active State (for other future links)
+                        else if (isActive) {
+                            activeClass = "bg-slate-800 text-blue-400 hover:bg-slate-800 hover:text-blue-400"
+                        }
+                        // Case 4: Inactive State
+                        else {
+                            activeClass = "hover:bg-slate-800 hover:text-slate-50"
+                        }
+
+                        // Check if we need the dot for Dashboard
+                        const showDot = link.href === "/" && globalActiveService?.primary_color
+
                         return (
                             <Link key={link.href} href={link.href}>
                                 <Button
-                                    variant={isActive ? "secondary" : "ghost"}
+                                    variant="ghost" // Always ghost, we handle bg manually
+                                    style={activeStyle}
                                     className={cn(
-                                        "w-full justify-start",
-                                        isActive
-                                            ? "bg-slate-800 text-blue-400 hover:bg-slate-800 hover:text-blue-400"
-                                            : "hover:bg-slate-800 hover:text-slate-50"
+                                        "w-full justify-start transition-all duration-200 relative",
+                                        activeClass
                                     )}
                                 >
                                     <Icon className="mr-2 h-4 w-4" />
                                     {link.label}
+                                    {showDot && (
+                                        <span
+                                            className="ml-auto h-2.5 w-2.5 rounded-full"
+                                            style={{ backgroundColor: globalActiveService?.primary_color }}
+                                        />
+                                    )}
                                 </Button>
                             </Link>
                         )

@@ -51,8 +51,9 @@ export function ItemsTable({ columns, data, onEdit, onDelete }: ItemsTableProps)
 
                 if (col.type === "currency") {
                     return new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
+                        style: "decimal",
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
                     }).format(Number(value) || 0)
                 }
 

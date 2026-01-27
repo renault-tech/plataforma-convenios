@@ -67,8 +67,17 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
         // Convert numbers
         const formattedData = { ...data };
         columns.forEach(col => {
-            if ((col.type === 'currency' || col.type === 'number') && formattedData[col.id]) {
-                formattedData[col.id] = Number(formattedData[col.id])
+            if (formattedData[col.id]) {
+                if (col.type === 'currency') {
+                    // Check if it's a string, replace dots (thousands) and comma (decimal)
+                    // e.g. "1.000,00" -> 1000.00
+                    const val = String(formattedData[col.id])
+                    // Remove thousands separator (.) and replace decimal separator (,) with (.)
+                    const cleanVal = val.replace(/\./g, '').replace(',', '.')
+                    formattedData[col.id] = Number(cleanVal)
+                } else if (col.type === 'number') {
+                    formattedData[col.id] = Number(formattedData[col.id])
+                }
             }
         })
 
@@ -144,11 +153,27 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
                                                 </Select>
                                             )}
                                         />
+                                    ) : col.type === 'currency' ? (
+                                        <Input
+                                            id={colId}
+                                            type="text"
+                                            inputMode="decimal"
+                                            placeholder="0,00"
+                                            className="h-10 rounded-md border-input"
+                                            {...register(colId, {
+                                                required: col.required,
+                                                onChange: (e) => {
+                                                    // Allow only numbers, commas, and dots
+                                                    // This simple logic helps, but specific masking would be better. 
+                                                    // For now, let user type flexibly to avoid blocking valid input.
+                                                }
+                                            })}
+                                        />
                                     ) : (
                                         <Input
                                             id={colId}
-                                            type={col.type === 'date' ? 'date' : col.type === 'number' || col.type === 'currency' ? 'number' : 'text'}
-                                            step={col.type === 'currency' ? "0.01" : "1"}
+                                            type={col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'}
+                                            step={col.type === 'number' ? "any" : undefined}
                                             placeholder={colLabel}
                                             className="h-10 rounded-md border-input"
                                             {...register(colId, { required: col.required })}
