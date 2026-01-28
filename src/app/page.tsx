@@ -27,6 +27,7 @@ export default function Home() {
     totalCount: 0,
     totalValue: 0,
     expiringCount: 0,
+    expiring90Count: 0,
     activeCount: 0,
     monthlyData: [] as any[],
     recentActivity: [] as any[]
@@ -52,17 +53,28 @@ export default function Home() {
 
         if (!items) return
 
-        // 1. Identify columns for metrics
-        const currencyCol = activeService.columns_config?.find((c: any) => c.type === 'currency')?.id
-        const dateCol = activeService.columns_config?.find((c: any) => c.type === 'date')?.id // For expiration
-        const statusCol = activeService.columns_config?.find((c: any) => c.type === 'status')?.id
+        // 1. Identify columns for metrics (Smart Detection)
+        const cols = activeService.columns_config || []
+
+        // Find Date Column: Priority to "vencimento", "prazo", "data"
+        let dateCol = cols.find((c: any) => c.type === 'date' && /vencimento|prazo|limite|validade/i.test(c.label))?.id
+        if (!dateCol) dateCol = cols.find((c: any) => c.type === 'date')?.id // Fallback to first date
+
+        // Find Currency Column: Priority to "valor", "total", "preço"
+        let currencyCol = cols.find((c: any) => c.type === 'currency' && /valor|total|preço|montante/i.test(c.label))?.id
+        if (!currencyCol) currencyCol = cols.find((c: any) => c.type === 'currency')?.id // Fallback
+
+        // Find Status Column
+        let statusCol = cols.find((c: any) => c.type === 'status')?.id
 
         // 2. Calculate Metrics
         let totalVal = 0
         let expiring = 0
+        let expiring90 = 0
         let active = 0
         const today = new Date()
         const next30Days = addDays(today, 30)
+        const next90Days = addDays(today, 90)
 
         items.forEach(item => {
           const itemData = item.data || {}
@@ -72,18 +84,33 @@ export default function Home() {
             totalVal += Number(itemData[currencyCol]) || 0
           }
 
-          // Expiration (items with date between now and 30 days)
-          if (dateCol && itemData[dateCol]) {
-            const itemDate = parseISO(itemData[dateCol])
-            if (isAfter(itemDate, today) && isBefore(itemDate, next30Days)) {
-              expiring++
+          // Expiration
+          if (dateCol && itemData[dateCol] && typeof itemData[dateCol] === 'string') {
+            try {
+              const itemDate = parseISO(itemData[dateCol])
+
+              // Only count future items for "A Vencer" (To Expire)
+              // If you want to include overdue, remove the isAfter check or separate it.
+              // Assuming "A Vencer" means "Coming Soon".
+              if (isAfter(itemDate, today)) {
+                // Check strict ranges
+                if (isBefore(itemDate, next30Days) || format(itemDate, 'yyyy-MM-dd') === format(next30Days, 'yyyy-MM-dd')) {
+                  // <= 30 days
+                  expiring++
+                } else if (isBefore(itemDate, next90Days) || format(itemDate, 'yyyy-MM-dd') === format(next90Days, 'yyyy-MM-dd')) {
+                  // > 30 days AND <= 90 days
+                  expiring90++
+                }
+              }
+            } catch (e) {
+              console.warn("Invalid date format", itemData[dateCol])
             }
           }
 
           // Active Status (naive check for 'Ativo' or 'Em Execução')
           if (statusCol && itemData[statusCol]) {
             const status = String(itemData[statusCol]).toLowerCase()
-            if (status.includes('ativo') || status.includes('execução') || status.includes('andamento')) {
+            if (status.includes('ativo') || status.includes('execução') || status.includes('andamento') || status.includes('vigente')) {
               active++
             }
           }
@@ -98,14 +125,15 @@ export default function Home() {
         }
 
         // Populate monthly data - grouping by created_at 
-        // (Ideally we would use a date column from the item if available, but created_at is safe)
         items.forEach(item => {
-          const d = parseISO(item.created_at)
-          const key = format(d, 'MMM', { locale: ptBR })
-          if (monthsMap.has(key)) {
-            monthsMap.set(key, monthsMap.get(key) + 1) // Count items
-            // Alternatively sum value if currencyCol exists? 
-            // Let's stick to Count for "Overview" bar chart as generic behavior
+          if (item.created_at && typeof item.created_at === 'string') {
+            try {
+              const d = parseISO(item.created_at)
+              const key = format(d, 'MMM', { locale: ptBR })
+              if (monthsMap.has(key)) {
+                monthsMap.set(key, monthsMap.get(key) + 1)
+              }
+            } catch (e) { }
           }
         })
 
@@ -124,6 +152,7 @@ export default function Home() {
           totalCount: items.length,
           totalValue: totalVal,
           expiringCount: expiring,
+          expiring90Count: expiring90,
           activeCount: active,
           monthlyData,
           recentActivity
@@ -221,27 +250,43 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Card 3: Expiring */}
+        {/* Card 3: Expiring (Split) */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium">
-              A Vencer (30 dias)
+              Próximos Vencimentos
             </CardTitle>
             <AlertCircle className="h-3 w-3 text-muted-foreground" />
           </CardHeader>
           <CardContent className="pb-2">
-            <div className="text-xl font-bold">{dashboardData.expiringCount}</div>
-            <p className="text-[10px] text-muted-foreground mb-2">
-              Requer atenção
-            </p>
-            <div className="h-[35px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                {/* Dummy trend for visual consistency */}
-                <AreaChart data={[{ value: 5 }, { value: dashboardData.expiringCount }, { value: 2 }]}>
-                  <Area type="monotone" dataKey="value" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} strokeWidth={2} />
-                  <Tooltip cursor={false} content={() => null} />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="grid grid-cols-2 gap-2">
+              {/* 90 Days */}
+              <div className="border-r pr-2">
+                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">90 Dias</p>
+                <div className="text-lg font-bold text-yellow-600">{dashboardData.expiring90Count}</div>
+                <div className="h-[25px] w-full mt-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={[{ value: 2 }, { value: dashboardData.expiring90Count }, { value: 4 }]}>
+                      <Area type="monotone" dataKey="value" stroke="#ca8a04" fill="#facc15" fillOpacity={0.2} strokeWidth={2} />
+                      <Tooltip cursor={false} content={() => null} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* 30 Days */}
+              <div className="pl-1">
+                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">30 Dias</p>
+                <div className="text-lg font-bold text-red-600">{dashboardData.expiringCount}</div>
+                <div className="h-[25px] w-full mt-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={[{ value: 5 }, { value: dashboardData.expiringCount }, { value: 2 }]}>
+                      <Area type="monotone" dataKey="value" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} strokeWidth={2} />
+                      <Tooltip cursor={false} content={() => null} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
