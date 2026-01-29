@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { Plus, Trash2, Save, X, Settings as SettingsIcon, AlertCircle } from "lucide-react"
 
@@ -45,22 +46,35 @@ interface ServiceData {
     columns_config: ColumnConfig[]
 }
 
+import { AccessControlView } from "@/components/settings/AccessControlView"
+import { Lock } from "lucide-react"
+
 export default function ConfiguracoesPage() {
     const { services, refreshServices, updateService } = useService()
     const [activeTab, setActiveTab] = useState<string>("new")
     const [isLoading, setIsLoading] = useState(false)
+    const [showAccessControl, setShowAccessControl] = useState(false)
 
-    // Set initial active tab when services load
+    const searchParams = useSearchParams()
+
+    // Set initial active tab when services load or URL params change
     useEffect(() => {
-        if (services.length > 0 && activeTab === "new" && !isLoading) {
-            // Keep 'new' or select first? User didn't specify default.
-            // Usually selecting the first service is better UX if services exist.
+        const tabParam = searchParams.get('tab')
+
+        if (tabParam === 'grupos') {
+            setShowAccessControl(true)
+        } else if (tabParam === 'new') {
+            setActiveTab("new")
+            setShowAccessControl(false)
+        } else if (services.length > 0 && activeTab === "new" && !isLoading && !showAccessControl && !tabParam) {
+            // Only default to first service if NO param is present
             if (services.length > 0) setActiveTab(services[0].id);
         }
-    }, [services.length]) // Only run when length changes to avoid forcing reset on every update
+    }, [services.length, searchParams])
 
     const handleTabChange = (value: string) => {
         setActiveTab(value)
+        setShowAccessControl(false)
     }
 
     // New handler for updating color
@@ -72,6 +86,17 @@ export default function ConfiguracoesPage() {
             toast.error("Erro ao atualizar cor.")
             console.error(e)
         }
+    }
+
+    if (showAccessControl) {
+        return (
+            <div className="container mx-auto p-6 space-y-8">
+                <AccessControlView
+                    onBack={() => setShowAccessControl(false)}
+                    autoOpenGroupCreate={searchParams.get('action') === 'new'}
+                />
+            </div>
+        )
     }
 
     return (
@@ -120,6 +145,15 @@ export default function ConfiguracoesPage() {
                         </Button>
                     </div>
                 </div>
+
+                <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => setShowAccessControl(true)}
+                >
+                    <Lock className="h-4 w-4" />
+                    Controle de Acesso
+                </Button>
             </div>
 
             {/* Content Area */}

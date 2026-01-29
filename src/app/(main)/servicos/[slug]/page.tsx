@@ -8,6 +8,8 @@ import { ItemForm } from "@/components/services/ItemForm"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
+import { ShareServiceDialog } from "@/components/services/ShareServiceDialog"
+
 export default function ServicePage() {
     const params = useParams()
     const slug = params.slug as string
@@ -170,9 +172,12 @@ export default function ServicePage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold tracking-tight" style={{ color: activeService.primary_color }}>
-                    {activeService.name}
-                </h2>
+                <div className="flex items-center gap-4">
+                    <h2 className="text-3xl font-bold tracking-tight" style={{ color: activeService.primary_color }}>
+                        {activeService.name}
+                    </h2>
+                    <ShareServiceDialog service={activeService} />
+                </div>
                 <ItemForm
                     columns={columns}
                     onSave={handleSaveItem}

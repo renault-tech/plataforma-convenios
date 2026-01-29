@@ -37,15 +37,25 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    if (
-        !user &&
-        !request.nextUrl.pathname.startsWith('/login') &&
-        !request.nextUrl.pathname.startsWith('/auth')
-    ) {
-        // no user, potentially redirect? For now just refreshing session
-        // const url = request.nextUrl.clone()
-        // url.pathname = '/login'
-        // return NextResponse.redirect(url)
+    const path = request.nextUrl.pathname
+
+    // Auth routes (Login, Signup, Recovery)
+    const isAuthRoute = path.startsWith('/login') ||
+        path.startsWith('/cadastro') ||
+        path.startsWith('/recuperar-senha')
+
+    // If User is NOT logged in and trying to access a PROTECTED route (everything else)
+    if (!user && !isAuthRoute && !path.startsWith('/auth/callback')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        return NextResponse.redirect(url)
+    }
+
+    // If User IS logged in and trying to access AUTH routes, redirect to Dashboard
+    if (user && isAuthRoute && !path.startsWith('/auth/callback')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/'
+        return NextResponse.redirect(url)
     }
 
     return supabaseResponse
