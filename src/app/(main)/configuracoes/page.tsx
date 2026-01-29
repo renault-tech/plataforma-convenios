@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { Plus, Trash2, Save, X, Settings as SettingsIcon, AlertCircle } from "lucide-react"
@@ -49,7 +49,7 @@ interface ServiceData {
 import { AccessControlView } from "@/components/settings/AccessControlView"
 import { Lock } from "lucide-react"
 
-export default function ConfiguracoesPage() {
+function ConfiguracoesContent() {
     const { services, refreshServices, updateService } = useService()
     const [activeTab, setActiveTab] = useState<string>("new")
     const [isLoading, setIsLoading] = useState(false)
@@ -169,6 +169,14 @@ export default function ConfiguracoesPage() {
                 )}
             </div>
         </div>
+    )
+}
+
+export default function ConfiguracoesPage() {
+    return (
+        <Suspense fallback={<div className="container mx-auto p-6">Carregando configurações...</div>}>
+            <ConfiguracoesContent />
+        </Suspense>
     )
 }
 
