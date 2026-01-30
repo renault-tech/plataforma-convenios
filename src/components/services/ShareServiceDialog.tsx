@@ -21,8 +21,9 @@ type Permission = {
     grantee_id: string
     permission_level: 'view' | 'edit' | 'admin'
     policy_id: string | null
-    grantee_details?: any // Joined details
-    policy_details?: any // Joined details
+    grantee_details?: any
+    policy_details?: any
+    origin_group_id?: string
 }
 
 export function ShareServiceDialog({ service }: ShareServiceDialogProps) {
@@ -37,8 +38,10 @@ export function ShareServiceDialog({ service }: ShareServiceDialogProps) {
     // Form State
     const [selectedType, setSelectedType] = useState<'user' | 'group'>('group')
     const [selectedGranteeId, setSelectedGranteeId] = useState("")
-    const [selectedPolicyId, setSelectedPolicyId] = useState<string>("none") // "none" for null
+    const [selectedPolicyId, setSelectedPolicyId] = useState<string>("none")
     const [selectedLevel, setSelectedLevel] = useState<'view' | 'edit' | 'admin'>('view')
+
+    const [currentUser, setCurrentUser] = useState<any>(null)
 
     useEffect(() => {
         if (open) {
@@ -48,37 +51,36 @@ export function ShareServiceDialog({ service }: ShareServiceDialogProps) {
 
     const fetchData = async () => {
         setLoading(true)
+        const { data: { user } } = await supabase.auth.getUser()
 
-        // Parallel fetch
+        if (user) {
+            const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+            setCurrentUser(data)
+        }
+
         const [permData, groupsData, policiesData, usersData] = await Promise.all([
-            // Permissions
             supabase.from('service_permissions')
                 .select(`
-                    id, grantee_type, grantee_id, permission_level, policy_id,
+                    id, grantee_type, grantee_id, permission_level, policy_id, origin_group_id,
                     policies:policy_id(name)
                 `)
                 .eq('service_id', service.id),
 
-            // Groups
             supabase.from('access_groups').select('id, name'),
 
-            // Policies (Global + Specific to this service)
             supabase.from('access_policies')
                 .select('id, name')
                 .or(`service_id.is.null,service_id.eq.${service.id}`),
 
-            // Users (Limit 50 for now)
             supabase.from('profiles').select('id, full_name, email').limit(50)
         ])
 
         if (permData.data) {
-            // Need to manually join grantee names because of polymorphic relationship
             const perms = permData.data as any[]
-
-            // This manual join is a bit tricky client side efficiently without a view, 
-            // but for low volume it's fine.
             const enhancedPerms = perms.map(p => {
                 let details = null;
+                // If it came from a group, look up user details but maybe indicate group logic?
+                // Actually if origin_group_id is set, it's a User permission but linked to group.
                 if (p.grantee_type === 'group') {
                     details = groupsData.data?.find(g => g.id === p.grantee_id)
                 } else {
@@ -106,56 +108,119 @@ export function ShareServiceDialog({ service }: ShareServiceDialogProps) {
             return
         }
 
-        // Only send notification. Permission will be created on Accept.
+        const senderName = currentUser?.full_name || currentUser?.email || "Alguém"
+
         if (selectedType === 'user') {
-            await supabase.from('notifications').insert({
-                user_id: selectedGranteeId,
-                title: 'Convite de Acesso',
-                message: `Você foi convidado para acessar o aplicativo "${service.name}".`,
-                type: 'service_share',
-                metadata: {
-                    service_id: service.id,
-                    service_slug: service.slug,
-                    grantee_type: selectedType,
-                    grantee_id: selectedGranteeId,
-                    permission_level: selectedLevel,
-                    policy_id: selectedPolicyId === "none" ? null : selectedPolicyId
-                }
-            })
-            toast.success("Convite enviado!")
-            setSelectedGranteeId("")
-        } else {
-            // For groups, we might need to notify the group owner? Or auto-add?
-            // Since we can't notify a "group" directly easily without iterating members.
-            // For now, let's just create the permission for groups directly if the user is admin/owner.
-            // But wait, we said "no status column". So if we create it, it's active.
-            // That's fine for Groups if the USER assigning it has rights.
-            // The issue was "User sees services created by others". 
-            // If I share with a Group, members of that group gain access. That is intended.
-            // The problem was "Inviting a USER" should not show up until they accept.
-            // So for Groups -> Insert directly is fine?
-            // Or should Group invite also be accepted by... whom?
-            // Usually sharing with a group is immediate.
-
-            const policyId = selectedPolicyId === "none" ? null : selectedPolicyId
-
-            const { error } = await supabase
+            // Direct User Share
+            const { data: permData, error: permError } = await supabase
                 .from('service_permissions')
                 .insert({
                     service_id: service.id,
                     grantee_type: selectedType,
                     grantee_id: selectedGranteeId,
                     permission_level: selectedLevel,
-                    policy_id: policyId
+                    policy_id: selectedPolicyId === "none" ? null : selectedPolicyId,
+                    status: 'pending'
                 })
+                .select()
+                .single()
 
-            if (error) {
-                toast.error("Erro ao compartilhar com grupo")
-                console.error(error)
-            } else {
-                toast.success("Acesso de grupo concedido!")
-                fetchData()
+            if (permError) {
+                console.error(permError)
+                toast.error("Erro ao criar convite: " + permError.message)
+                return
+            }
+
+            await supabase.from('notifications').insert({
+                user_id: selectedGranteeId,
+                title: 'Convite de Acesso',
+                message: `${senderName} convidou você para acessar "${service.name}".`,
+                type: 'service_share',
+                metadata: {
+                    service_id: service.id,
+                    service_slug: service.slug,
+                    permission_id: permData.id,
+                    grantee_type: selectedType,
+                    grantee_id: selectedGranteeId,
+                    sender_id: currentUser?.id,
+                    sender_name: senderName
+                }
+            })
+            toast.success("Convite enviado!")
+            setSelectedGranteeId("")
+            fetchData()
+
+        } else {
+            // Group Share: Mass Invite Logic (Snapshot)
+            const policyId = selectedPolicyId === "none" ? null : selectedPolicyId
+
+            // 1. Fetch Group Members
+            const { data: members, error: membersError } = await supabase
+                .from('access_group_members')
+                .select('user_id')
+                .eq('group_id', selectedGranteeId)
+
+            if (membersError || !members) {
+                console.error("Error fetching group members", membersError)
+                toast.error("Erro ao buscar membros do grupo.")
+                return
+            }
+
+            if (members.length === 0) {
+                toast.warning("O grupo está vazio. Ninguém foi convidado.")
+                return
+            }
+
+            // 2. Iterate and Invite Each Member
+            let sucessCount = 0
+            for (const member of members) {
+                // Create Permission (Pending, Linked to Group)
+                // Use upsert to avoid duplicate error if already invited
+                const { data: permData, error: permError } = await supabase
+                    .from('service_permissions')
+                    .insert({
+                        service_id: service.id,
+                        grantee_type: 'user', // Individual User Permission
+                        grantee_id: member.user_id,
+                        permission_level: selectedLevel,
+                        policy_id: policyId,
+                        status: 'pending', // Pending acceptance
+                        origin_group_id: selectedGranteeId // Link to source group
+                    })
+                    .select()
+                    .single()
+
+                if (!permError) {
+                    // Notification
+                    await supabase.from('notifications').insert({
+                        user_id: member.user_id,
+                        title: 'Convite de Acesso (Grupo)',
+                        message: `${senderName} convidou você (via Grupo) para acessar "${service.name}".`,
+                        type: 'service_share',
+                        metadata: {
+                            service_id: service.id,
+                            service_slug: service.slug,
+                            permission_id: permData.id,
+                            grantee_type: 'user',
+                            grantee_id: member.user_id,
+                            sender_id: currentUser?.id,
+                            sender_name: senderName,
+                            origin_group_id: selectedGranteeId
+                        }
+                    })
+                    sucessCount++
+                } else {
+                    console.error("Failed to invite member:", member.user_id, permError)
+                    // If duplicate key error, we can ignore (already invited)
+                }
+            }
+
+            if (sucessCount > 0) {
+                toast.success(`${sucessCount} convites enviados para o grupo!`)
                 setSelectedGranteeId("")
+                fetchData()
+            } else {
+                toast.warning("Nenhum convite enviado (membros já podem ter acesso).")
             }
         }
     }
@@ -277,11 +342,12 @@ export function ShareServiceDialog({ service }: ShareServiceDialogProps) {
                                 <div key={perm.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
                                     <div className="flex items-center gap-3">
                                         <div className="h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center">
-                                            {perm.grantee_type === 'group' ? <Users className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+                                            {perm.grantee_type === 'group' || perm.origin_group_id ? <Users className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
                                         </div>
                                         <div>
                                             <div className="font-medium text-sm">
                                                 {perm.grantee_details?.name || perm.grantee_details?.full_name || 'Desconhecido'}
+                                                {perm.origin_group_id && <span className="text-[10px] text-muted-foreground ml-2">(Via Grupo)</span>}
                                             </div>
                                             <div className="text-xs text-muted-foreground flex items-center gap-2">
                                                 <Badge variant="secondary" className="text-[10px] h-4">
@@ -298,6 +364,7 @@ export function ShareServiceDialog({ service }: ShareServiceDialogProps) {
                                                         Acesso Total
                                                     </span>
                                                 )}
+                                                {perm.id && !perm.grantee_details && <span className="text-red-400">Pendente</span>}
                                             </div>
                                         </div>
                                     </div>

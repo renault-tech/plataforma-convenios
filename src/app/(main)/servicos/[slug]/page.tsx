@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
 import { ShareServiceDialog } from "@/components/services/ShareServiceDialog"
+import { ServiceInfoDialog } from "@/components/services/ServiceInfoDialog"
 
 export default function ServicePage() {
     const params = useParams()
@@ -176,7 +177,10 @@ export default function ServicePage() {
                     <h2 className="text-3xl font-bold tracking-tight" style={{ color: activeService.primary_color }}>
                         {activeService.name}
                     </h2>
-                    <ShareServiceDialog service={activeService} />
+                    <div className="flex items-center gap-1">
+                        <ShareServiceDialog service={activeService} />
+                        <ServiceInfoDialog service={activeService} />
+                    </div>
                 </div>
                 <ItemForm
                     columns={columns}

@@ -4,11 +4,10 @@ import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, FileText, Loader2, ArrowRight } from "lucide-react"
+import { Eye, EyeOff, FileText, Loader2 } from "lucide-react"
 import Link from "next/link"
 
 export default function LoginPage() {
@@ -50,60 +49,62 @@ export default function LoginPage() {
     }
 
     return (
-        <Card className="w-full max-w-[380px] shadow-2xl bg-[#FFFDD0] border-amber-100">
-            <CardHeader className="text-center space-y-4 pt-10 pb-6">
-                <div className="flex justify-center mb-2">
-                    <div className="h-16 w-16 bg-white rounded-full flex items-center justify-center shadow-md animate-in zoom-in duration-300">
-                        <FileText className="h-8 w-8 text-blue-600" />
+        <div className="w-full max-w-[400px] p-8 rounded-3xl border border-white/20 bg-white/10 backdrop-blur-md shadow-2xl relative overflow-hidden">
+            {/* Subtle internal gradient for reflection */}
+            <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col items-center text-center space-y-6">
+                {/* Logo Area */}
+                <div className="relative group">
+                    <div className="h-20 w-20 bg-gradient-to-b from-blue-500 to-blue-700 rounded-full flex items-center justify-center shadow-lg relative border border-white/20">
+                        <FileText className="h-9 w-9 text-white drop-shadow-md z-10" />
                     </div>
                 </div>
-                <div>
-                    <CardTitle className="text-2xl font-bold text-slate-900">GovManager</CardTitle>
-                    <CardDescription className="text-slate-600 font-medium mt-1">
-                        Gestão de Convênios Públicos
-                    </CardDescription>
+
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold text-white tracking-tight drop-shadow-lg">GovManager</h1>
+                    <p className="text-slate-300 font-medium text-sm">Gestão de Convênios Públicos</p>
                 </div>
-            </CardHeader>
-            <CardContent>
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="email" className="text-slate-700">Email Corporativo</Label>
+
+                <form onSubmit={handleLogin} className="w-full space-y-5 text-left">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="email" className="text-slate-200 text-xs font-semibold pl-1">Email Corporativo</Label>
                         <Input
                             id="email"
                             type="email"
-                            placeholder="seunome@orgao.gov.br"
+                            placeholder=""
                             value={email}
                             onChange={e => setEmail(e.target.value)}
-                            className="bg-white/80 border-slate-200 focus:bg-white transition-colors"
+                            // Solid White Input clean
+                            className="bg-white border-0 text-slate-900 placeholder:text-slate-400 h-11 rounded-lg shadow-inner focus-visible:ring-2 focus-visible:ring-blue-500"
                             required
                         />
                     </div>
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="password" className="text-slate-700">Senha</Label>
-                        </div>
+
+                    <div className="space-y-1.5">
+                        <Label htmlFor="password" className="text-slate-200 text-xs font-semibold pl-1">Senha</Label>
                         <div className="relative">
                             <Input
                                 id="password"
                                 type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
-                                className="bg-white/80 border-slate-200 focus:bg-white transition-colors pr-10"
+                                className="bg-white border-0 text-slate-900 placeholder:text-slate-400 h-11 rounded-lg shadow-inner pr-10 focus-visible:ring-2 focus-visible:ring-blue-500"
                                 required
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 transition-colors"
                                 tabIndex={-1}
                             >
-                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                             </button>
                         </div>
-                        <div className="flex justify-end pt-1">
+                        <div className="flex justify-end">
                             <Link
                                 href="/recuperar-senha"
-                                className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                className="text-[11px] text-blue-200 hover:text-white transition-colors pt-1 font-medium"
                             >
                                 Esqueci minha senha
                             </Link>
@@ -112,25 +113,24 @@ export default function LoginPage() {
 
                     <Button
                         type="submit"
-                        className="w-full bg-slate-900 hover:bg-slate-800 text-white h-11 font-medium shadow-lg mt-2"
+                        className="w-full bg-gradient-to-b from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white h-12 font-bold rounded-lg shadow-lg border-t border-blue-400/50 mt-2 active:scale-[0.98] transition-all"
                         disabled={loading}
                     >
                         {loading ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                         ) : (
                             "Acessar Plataforma"
                         )}
                     </Button>
                 </form>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-4 text-center pb-8 border-t border-amber-200/50 pt-6 mt-2">
-                <div className="text-sm text-slate-600">
+
+                <div className="pt-4 text-center text-sm text-slate-400 w-full mt-2 border-t border-white/10">
                     Não tem acesso?{" "}
-                    <Link href="/cadastro" className="text-blue-600 font-semibold hover:underline">
+                    <Link href="/cadastro" className="text-white font-bold hover:underline transition-colors ml-1">
                         Solicitar Conta
                     </Link>
                 </div>
-            </CardFooter>
-        </Card>
+            </div>
+        </div>
     )
 }

@@ -229,20 +229,46 @@ function GroupMembersEditor({ group, onUpdate, currentUser }: { group: AccessGro
     }
 
     const addMember = async (userId: string) => {
-        // Only send notification
         try {
-            await supabase.from("notifications").insert({
+            console.log(`Adding member: Group=${group.id}, User=${userId}`)
+
+            // Use upsert to handle potential existing rows/recursion issues gracefully
+            const { data, error } = await supabase.from("access_group_members").upsert({
+                group_id: group.id,
                 user_id: userId,
-                title: "Convite de Grupo",
-                message: `Você foi convidado para participar do grupo "${group.name}".`,
-                type: "group_invite",
-                action_link: "/configuracoes?tab=grupos",
+                status: 'active'
+            }).select()
+
+            if (error) {
+                console.error("Supabase Error Object:", error)
+                throw error
+            }
+
+            console.log("Member added successfully:", data)
+
+            // Notification (Info)
+            const { error: notifyError } = await supabase.from("notifications").insert({
+                user_id: userId,
+                title: "Novo Grupo",
+                message: `Você foi adicionado ao grupo "${group.name}".`,
+                type: "info",
                 metadata: { group_id: group.id }
             })
-            toast.success("Convite enviado!")
-        } catch (e) {
-            console.error("Failed to send notification", e)
-            toast.error("Erro ao enviar convite")
+
+            if (notifyError) console.warn("Notification error (non-blocking):", notifyError)
+
+            toast.success("Membro adicionado com sucesso!")
+
+            // Refresh local list
+            fetchData()
+        } catch (e: any) {
+            console.error("Failed to add member", e)
+            // Enhanced logging
+            if (e?.code) console.error("Error Code:", e.code)
+            if (e?.message) console.error("Error Message:", e.message)
+            console.error("Full Error:", JSON.stringify(e, null, 2))
+
+            toast.error(`Erro ao adicionar membro: ${e.message || 'Erro desconhecido'}`)
         }
     }
 
