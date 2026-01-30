@@ -8,6 +8,10 @@ import { PlusCircle, LayoutDashboard, Bell, FileText, CheckCircle2 } from "lucid
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 
+import { toast } from "sonner"
+import { useSearchParams } from "next/navigation"
+import { Suspense } from "react" // Added Suspense import
+
 export default function Home() {
   const { services } = useService()
 
@@ -16,7 +20,30 @@ export default function Home() {
     return <HeroEmptyState />
   }
 
-  return <InboxDashboard services={services} />
+  return (
+    <Suspense fallback={null}>
+      <WelcomeHandler />
+      <InboxDashboard services={services} />
+    </Suspense>
+  )
+}
+
+function WelcomeHandler() {
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    if (searchParams.get("welcome") === "true") {
+      // Small delay to ensure UI is ready
+      setTimeout(() => {
+        toast.success("Cadastro confirmado com sucesso!", {
+          description: "Seja bem-vindo(a) à plataforma. Comece criando seu primeiro serviço.",
+          duration: 8000,
+        })
+      }, 500)
+    }
+  }, [searchParams])
+
+  return null
 }
 
 function HeroEmptyState() {

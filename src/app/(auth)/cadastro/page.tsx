@@ -36,11 +36,16 @@ export default function SignupPage() {
                         secretaria,
                         setor
                     },
+                    emailRedirectTo: `${location.origin}/auth/callback`,
                 },
             })
 
             if (error) {
-                toast.error("Erro ao criar conta: " + error.message)
+                if (error.message.includes("rate limit") || error.status === 429) {
+                    toast.error("Muitas tentativas. Por favor, aguarde alguns instantes.")
+                } else {
+                    toast.error("Erro ao criar conta: " + error.message)
+                }
             } else {
                 toast.success("Conta criada! Verifique seu email para confirmar.")
                 router.push("/login")
