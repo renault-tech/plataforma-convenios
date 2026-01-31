@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { PlusCircle, LayoutDashboard, Bell, FileText, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
+import { useNotificationActions } from "@/hooks/useNotificationActions"
 
 import { toast } from "sonner"
 import { useSearchParams } from "next/navigation"
@@ -62,7 +63,7 @@ function HeroEmptyState() {
       </div>
 
       <Link href="/configuracoes?tab=servicos">
-        <Button size="lg" className="h-14 px-8 text-lg rounded-full shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 bg-blue-600 hover:bg-blue-700">
+        <Button size="lg" className="h-14 px-8 text-lg rounded-full shadow-lg hover:shadow-xl transition-all bg-blue-600 hover:bg-blue-700">
           <PlusCircle className="mr-2 h-5 w-5" />
           Criar Meu Primeiro Serviço
         </Button>
@@ -92,9 +93,56 @@ function HeroEmptyState() {
 function InboxDashboard({ services }: { services: any[] }) {
   // This component replaces the old dashboard with a simpler "Inbox" feel
   const [stats, setStats] = useState({ alerts: 0, pending: 0, updates: 0 })
+  const [notifications, setNotifications] = useState<any[]>([])
+  const supabase = createClient()
+  const { activeService } = useService()
+
+  const fetchNotes = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq('user_id', user.id)
+      .order("created_at", { ascending: false })
+      .limit(20)
+
+    if (data) {
+      setNotifications(data)
+      const pending = data.filter(n =>
+        !n.read_at && (n.type === 'service_share' || n.type === 'group_invite')
+      ).length
+
+      // Update stats
+      setStats(prev => ({ ...prev, pending }))
+    }
+  }
+
+  useEffect(() => {
+    fetchNotes()
+
+    const channel = supabase
+      .channel('dashboard-notifications')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications' },
+        () => fetchNotes()
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div
+      className="space-y-8 max-w-6xl mx-auto -m-8 p-8"
+      style={{
+        background: activeService ? `linear-gradient(to bottom, ${activeService.primary_color}15 0%, #ffffff 400px)` : undefined
+      }}
+    >
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Caixa de Entrada</h2>
@@ -151,7 +199,7 @@ function InboxDashboard({ services }: { services: any[] }) {
                 <Link key={service.id} href={`/servicos/${service.slug}`}>
                   <div className="group flex items-center p-4 border rounded-xl hover:bg-slate-50 hover:border-blue-300 transition-all cursor-pointer bg-white h-full">
                     <div
-                      className="h-10 w-10 rounded-lg flex items-center justify-center mr-4 text-white shadow-sm group-hover:scale-110 transition-transform"
+                      className="h-10 w-10 rounded-lg flex items-center justify-center mr-4 text-white shadow-sm transition-transform"
                       style={{ backgroundColor: service.primary_color || '#3b82f6' }}
                     >
                       <Database className="h-5 w-5" />
@@ -175,69 +223,89 @@ function InboxDashboard({ services }: { services: any[] }) {
 
         {/* Sidebar: Notifications */}
         <div className="md:col-span-1">
-          <NotificationsList />
+          <DashboardNotifications notifications={notifications} onRefresh={fetchNotes} />
         </div>
       </div>
     </div>
   )
 }
 
-function NotificationsList() {
-  const [notifications, setNotifications] = useState<any[]>([])
-  const supabase = createClient()
+function DashboardNotifications({ notifications, onRefresh }: { notifications: any[], onRefresh: () => void }) {
+  const { handleAccept, handleDecline, deleteNotification } = useNotificationActions()
 
-  useEffect(() => {
-    const fetchNotes = async () => {
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5)
-      setNotifications(data || [])
-    }
-    fetchNotes()
+  const onAccept = async (n: any) => {
+    const success = await handleAccept(n)
+    if (success) onRefresh()
+  }
 
-    // Realtime
-    const channel = supabase
-      .channel('notifications-list')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications' },
-        (payload) => setNotifications(prev => [payload.new, ...prev].slice(0, 5))
-      )
-      .subscribe()
+  const onDecline = async (n: any) => {
+    const success = await handleDecline(n)
+    if (success) onRefresh()
+  }
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
+  // Pendencies are: Unread AND (service_share OR group_invite)
+  const pendingItems = notifications.filter(n =>
+    !n.read_at && (n.type === 'service_share' || n.type === 'group_invite')
+  )
+
+  // Recent History (everything else)
+  const recentHistory = notifications.filter(n =>
+    !pendingItems.includes(n)
+  ).slice(0, 5)
+
 
   return (
-    <Card className="h-full border-slate-200 shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-base">Notificações Recentes</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {notifications.length === 0 ? (
-          <p className="text-sm text-slate-500 italic">Nenhuma notificação.</p>
-        ) : (
-          notifications.map(note => (
-            <div key={note.id} className="flex gap-3 items-start pb-3 border-b last:border-0 last:pb-0">
-              <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${note.read_at ? 'bg-slate-300' : 'bg-blue-500'}`} />
-              <div className="space-y-1">
-                <p className="text-sm font-medium leading-none">{note.title}</p>
-                <p className="text-xs text-slate-500 line-clamp-2">{note.message}</p>
-                {note.action_link && (
-                  <Link href={note.action_link} className="text-xs text-blue-600 hover:underline pt-1 block">
-                    Ver detalhes
-                  </Link>
-                )}
+    <div className="space-y-6 h-full flex flex-col">
+      {/* PENDÊNCIAS CARD - Only shows if there are pending items */}
+      {pendingItems.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/30 shadow-sm animate-in fade-in slide-in-from-right-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-amber-900 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-amber-600" />
+              Pendências ({pendingItems.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingItems.map(n => (
+              <div key={n.id} className="bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
+                <h4 className="font-semibold text-sm text-slate-900">{n.title}</h4>
+                <p className="text-xs text-slate-600 mb-3">{n.message}</p>
+                <div className="flex gap-2">
+                  <Button size="sm" className="h-7 text-xs flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => onAccept(n)}>
+                    Aceitar
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs flex-1 border-red-200 text-red-700 hover:bg-red-50" onClick={() => onDecline(n)}>
+                    Recusar
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))
-        )}
-      </CardContent>
-    </Card>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* RECENT NOTIFICATIONS - Normal list */}
+      <Card className="flex-1 border-slate-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Últimas Atualizações</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {recentHistory.length === 0 ? (
+            <p className="text-sm text-slate-500 italic">Nenhuma atualização recente.</p>
+          ) : (
+            recentHistory.map(note => (
+              <div key={note.id} className="flex gap-3 items-start pb-3 border-b last:border-0 last:pb-0">
+                <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${note.read_at ? 'bg-slate-300' : 'bg-blue-500'}`} />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium leading-none">{note.title}</p>
+                  <p className="text-xs text-slate-500 line-clamp-2">{note.message}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 

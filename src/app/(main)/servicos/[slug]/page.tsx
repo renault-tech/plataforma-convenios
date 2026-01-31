@@ -7,9 +7,12 @@ import { ItemsTable } from "@/components/services/ItemsTable"
 import { ItemForm } from "@/components/services/ItemForm"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { Pencil } from "lucide-react"
 
 import { ShareServiceDialog } from "@/components/services/ShareServiceDialog"
 import { ServiceInfoDialog } from "@/components/services/ServiceInfoDialog"
+import { ServiceChatTrigger } from "@/components/chat/ServiceChatTrigger"
+import { ServiceChatSheet } from "@/components/chat/ServiceChatSheet"
 
 export default function ServicePage() {
     const params = useParams()
@@ -111,6 +114,40 @@ export default function ServicePage() {
     }
 
     const [editingItem, setEditingItem] = useState<any | null>(null)
+    const [isRenaming, setIsRenaming] = useState(false)
+    const [newName, setNewName] = useState("")
+
+    const handleStartRename = () => {
+        if (activeService) {
+            setNewName(activeService.name)
+            setIsRenaming(true)
+        }
+    }
+
+    const handleRename = async () => {
+        if (!activeService) return
+        if (!newName.trim() || newName === activeService.name) {
+            setIsRenaming(false)
+            return
+        }
+
+        try {
+            const { error } = await supabase
+                .from('services')
+                .update({ name: newName })
+                .eq('id', activeService.id)
+
+            if (error) throw error
+
+            toast.success("Nome atualizado!")
+            setActiveService({ ...activeService, name: newName }) // Optimistic update
+            refreshServices() // Update sidebar
+            setIsRenaming(false)
+        } catch (error) {
+            console.error("Error renaming service:", error)
+            toast.error("Erro ao renomear serviço.")
+        }
+    }
 
     // ... (useEffect fetches)
 
@@ -171,12 +208,41 @@ export default function ServicePage() {
     const columns = activeService.columns_config || []
 
     return (
-        <div className="space-y-6">
+        <div
+            className="space-y-6 -m-8 p-8"
+            style={{
+                background: `linear-gradient(to bottom, ${activeService.primary_color || '#3b82f6'}10 0%, #ffffff 350px)`
+            }}
+        >
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <h2 className="text-3xl font-bold tracking-tight" style={{ color: activeService.primary_color }}>
-                        {activeService.name}
-                    </h2>
+                <div className="flex items-center gap-4 group/header">
+                    <div className="flex flex-col flex-1">
+                        {isRenaming ? (
+                            <input
+                                autoFocus
+                                value={newName}
+                                onChange={(e) => setNewName(e.target.value)}
+                                onBlur={handleRename}
+                                onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+                                className="text-2xl font-bold uppercase tracking-tight bg-transparent border-none outline-none text-slate-900 w-full"
+                                style={{ color: activeService.primary_color || '#3b82f6' }}
+                            />
+                        ) : (
+                            <div className="flex items-center gap-3">
+                                <h2
+                                    className="text-2xl font-bold uppercase tracking-tight cursor-text hover:opacity-80 transition-opacity flex items-center gap-2"
+                                    style={{ color: activeService.primary_color || '#3b82f6' }}
+                                    onClick={handleStartRename}
+                                    title="Clique para renomear"
+                                >
+                                    {activeService.name}
+                                    <span className="opacity-0 group-hover/header:opacity-100 transition-opacity text-slate-300">
+                                        <Pencil className="h-4 w-4" />
+                                    </span>
+                                </h2>
+                            </div>
+                        )}
+                    </div>
                     <div className="flex items-center gap-1">
                         <ShareServiceDialog service={activeService} />
                         <ServiceInfoDialog service={activeService} />
@@ -197,6 +263,7 @@ export default function ServicePage() {
                     data={items}
                     onEdit={(item) => setEditingItem(item)}
                     onDelete={handleDeleteItem}
+                    primaryColor={activeService.primary_color}
                 />
             )}
 
@@ -211,6 +278,18 @@ export default function ServicePage() {
                     onOpenChange={(open) => !open && setEditingItem(null)}
                 />
             )}
+
+            {/* Service Chat */}
+            <ServiceChatTrigger
+                serviceId={activeService.id}
+                serviceName={activeService.name}
+                primaryColor={activeService.primary_color}
+            />
+            <ServiceChatSheet
+                serviceId={activeService.id}
+                serviceName={activeService.name}
+                primaryColor={activeService.primary_color}
+            />
         </div>
     )
 }

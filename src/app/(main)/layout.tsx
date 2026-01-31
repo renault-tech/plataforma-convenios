@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Navbar } from "@/components/layout/Navbar";
 import { ServiceProvider } from "@/contexts/ServiceContext";
 import { GroupProvider } from "@/contexts/GroupContext";
+import { ChatProvider } from "@/contexts/ChatContext";
 
 export default function MainLayout({
     children,
@@ -13,15 +14,17 @@ export default function MainLayout({
     return (
         <ServiceProvider>
             <GroupProvider>
-                <div className="flex min-h-screen w-full bg-slate-50 text-slate-900">
-                    <Sidebar />
-                    <div className="flex flex-1 flex-col">
-                        <Navbar />
-                        <main className="flex-1 overflow-auto bg-slate-50/50 p-6">
-                            {children}
-                        </main>
+                <ChatProvider>
+                    <div className="flex h-screen w-full overflow-hidden bg-slate-50 text-slate-900">
+                        <Sidebar />
+                        <div className="flex flex-1 flex-col">
+                            <Navbar />
+                            <main className="flex-1 overflow-auto bg-slate-50/50 p-6">
+                                {children}
+                            </main>
+                        </div>
                     </div>
-                </div>
+                </ChatProvider>
             </GroupProvider>
         </ServiceProvider>
     );

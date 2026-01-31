@@ -15,6 +15,7 @@ import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { useService } from "@/contexts/ServiceContext"
+import { useNotificationActions } from "@/hooks/useNotificationActions"
 
 type Notification = {
     id: string
@@ -62,8 +63,38 @@ export function NotificationsPopover() {
         }
     }, [])
 
-    const markAsRead = async (id: string) => {
-        await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id)
+
+    const { handleAccept, handleDecline, deleteNotification, markAsRead } = useNotificationActions()
+
+    const onAccept = async (notification: Notification) => {
+        const success = await handleAccept(notification)
+        if (success) {
+            setNotifications(prev => prev.filter(n => n.id !== notification.id))
+            setUnreadCount(prev => Math.max(0, prev - 1))
+        }
+    }
+
+    const onDecline = async (notification: Notification) => {
+        const success = await handleDecline(notification)
+        if (success) {
+            setNotifications(prev => prev.filter(n => n.id !== notification.id))
+            setUnreadCount(prev => Math.max(0, prev - 1))
+        }
+    }
+
+    const onDelete = async (id: string, e?: React.MouseEvent) => {
+        e?.stopPropagation()
+        const success = await deleteNotification(id)
+        if (success) {
+            setNotifications(prev => prev.filter(n => n.id !== id))
+            // If it was unread, decrease count
+            const wasUnread = notifications.find(n => n.id === id && !n.read_at)
+            if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1))
+        }
+    }
+
+    const onMarkRead = async (id: string) => {
+        await markAsRead(id)
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n))
         setUnreadCount(prev => Math.max(0, prev - 1))
     }
@@ -74,137 +105,7 @@ export function NotificationsPopover() {
         setUnreadCount(0)
     }
 
-    const deleteNotification = async (id: string, e?: React.MouseEvent) => {
-        e?.stopPropagation()
-        try {
-            await supabase.from("notifications").delete().eq("id", id)
-            setNotifications(prev => prev.filter(n => n.id !== id))
-            setUnreadCount(prev => prev - (notifications.find(n => n.id === id && !n.read_at) ? 1 : 0))
-            toast.success("Notificação removida.")
-        } catch (error) {
-            console.error("Failed to delete notification", error)
-            toast.error("Erro ao remover notificação.")
-        }
-    }
 
-    const handleAccept = async (notification: Notification) => {
-        console.log("handleAccept started", notification)
-        try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                console.error("handleAccept: No user found")
-                return
-            }
-
-            // Get user name for feedback
-            const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single()
-            const acceptorName = profile?.full_name || profile?.email || "Usuário"
-
-            if (notification.type === 'service_share') {
-                console.log("Processing service_share", notification.metadata)
-                if (notification.metadata?.permission_id) {
-                    // NEW FLOW: Permission exists, update to active
-                    console.log("Updating permission", notification.metadata.permission_id)
-                    const { error } = await supabase
-                        .from('service_permissions')
-                        .update({ status: 'active' })
-                        .eq('id', notification.metadata.permission_id)
-
-                    if (error) {
-                        console.error("Error updating permission", error)
-                        throw error
-                    }
-                } else {
-                    // LEGACY: Fallback insert
-                    console.log("Legacy insert permission")
-                    const { error } = await supabase
-                        .from('service_permissions')
-                        .insert({
-                            service_id: notification.metadata.service_id,
-                            grantee_type: notification.metadata.grantee_type || 'user',
-                            grantee_id: notification.metadata.grantee_id || user.id,
-                            permission_level: notification.metadata.permission_level || 'view',
-                            policy_id: notification.metadata.policy_id,
-                            status: 'active'
-                        })
-                    if (error) {
-                        console.error("Error inserting permission", error)
-                        throw error
-                    }
-                }
-
-                // Notify Sender
-                if (notification.metadata.sender_id) {
-                    await supabase.from('notifications').insert({
-                        user_id: notification.metadata.sender_id,
-                        title: 'Convite Aceito',
-                        message: `${acceptorName} aceitou o convite para acessar "${notification.metadata.service_slug || 'o serviço'}"`,
-                        type: 'info'
-                    })
-                }
-                toast.success("Acesso aceito!")
-
-            } else if (notification.type === 'group_invite' && notification.metadata?.group_id) {
-                // ... Existing Group Logic
-                console.log("Processing group_invite", notification.metadata.group_id)
-                const { error } = await supabase
-                    .from('access_group_members')
-                    .insert({
-                        group_id: notification.metadata.group_id,
-                        user_id: user.id,
-                        status: 'active'
-                    })
-
-                if (error) {
-                    if (error.code === '42501') {
-                        console.warn("RLS Error on group accept (Legacy Invite?):", error)
-                        toast.info("Este convite é antigo. Solicite ao dono para lhe adicionar novamente.")
-                        // Allow to proceed to delete/mark as read
-                    } else {
-                        console.error("Error accepting group invite", error)
-                        throw error
-                    }
-                } else {
-                    toast.success("Convite de grupo aceito!")
-                }
-            }
-
-            // Success Actions
-            await refreshServices()
-            await markAsRead(notification.id)
-
-        } catch (error: any) {
-            console.error("handleAccept caught error:", error)
-            console.error("Error details:", JSON.stringify(error, null, 2))
-            toast.error(`Falha ao aceitar: ${error.message || 'Erro desconhecido'}`)
-        }
-    }
-
-    const handleDecline = async (notification: Notification) => {
-        try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user && notification.metadata?.sender_id) {
-                const { data: profile } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single()
-                const declinerName = profile?.full_name || profile?.email || "Usuário"
-
-                await supabase.from('notifications').insert({
-                    user_id: notification.metadata.sender_id,
-                    title: 'Convite Recusado',
-                    message: `${declinerName} recusou o convite para acessar "${notification.metadata.service_slug || 'o serviço'}"`,
-                    type: 'info' // Just info, no action needed
-                })
-            }
-
-            // REFRESH SERVICES JUST IN CASE (Or if we want to remove pending optimistic state if existed)
-            await refreshServices()
-
-            toast.success("Convite recusado.")
-            await markAsRead(notification.id)
-        } catch (e) {
-            console.error(e)
-            toast.error("Erro ao recusar.")
-        }
-    }
 
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -241,7 +142,7 @@ export function NotificationsPopover() {
                                         variant="ghost"
                                         size="icon"
                                         className="h-6 w-6 absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500"
-                                        onClick={(e) => deleteNotification(n.id, e)}
+                                        onClick={(e) => onDelete(n.id, e)}
                                         title="Excluir notificação"
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />
@@ -256,7 +157,7 @@ export function NotificationsPopover() {
                                             </p>
                                         </div>
                                         {!n.read_at && (
-                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-400 hover:text-blue-600" onClick={() => markAsRead(n.id)} title="Marcar como lida">
+                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-400 hover:text-blue-600" onClick={() => onMarkRead(n.id)} title="Marcar como lida">
                                                 <div className="h-2 w-2 rounded-full bg-blue-600" />
                                             </Button>
                                         )}
@@ -265,11 +166,11 @@ export function NotificationsPopover() {
                                     {/* Action Buttons */}
                                     {(n.type === 'service_share' || n.type === 'group_invite') && !n.read_at && (
                                         <div className="flex gap-2 mt-1">
-                                            <Button size="sm" className="h-7 text-xs flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => handleAccept(n)}>
+                                            <Button size="sm" className="h-7 text-xs flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => onAccept(n)}>
                                                 <Check className="h-3 w-3 mr-1" />
                                                 Aceitar
                                             </Button>
-                                            <Button size="sm" variant="outline" className="h-7 text-xs flex-1 border-red-200 text-red-700 hover:bg-red-50" onClick={() => handleDecline(n)}>
+                                            <Button size="sm" variant="outline" className="h-7 text-xs flex-1 border-red-200 text-red-700 hover:bg-red-50" onClick={() => onDecline(n)}>
                                                 <X className="h-3 w-3 mr-1" />
                                                 Recusar
                                             </Button>

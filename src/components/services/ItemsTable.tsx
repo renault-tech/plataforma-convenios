@@ -36,13 +36,14 @@ interface ItemsTableProps {
     data: any[]
     onEdit?: (item: any) => void
     onDelete?: (item: any) => void
+    primaryColor?: string
 }
 
 import { Pencil, Trash2, AlertCircle, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { differenceInDays, parseISO, isAfter } from "date-fns"
 
-export function ItemsTable({ columns, data, onEdit, onDelete }: ItemsTableProps) {
+export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor }: ItemsTableProps) {
     const tableColumns: ColumnDef<any>[] = React.useMemo(() => {
         // Find Date Column for Alerts
         const dateColId = columns.find((c) => c.type === 'date' && /vencimento|prazo|limite|validade/i.test(c.label))?.id
@@ -169,10 +170,14 @@ export function ItemsTable({ columns, data, onEdit, onDelete }: ItemsTableProps)
             <Table>
                 <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
-                        <TableRow key={headerGroup.id}>
+                        <TableRow key={headerGroup.id} className="hover:bg-transparent border-slate-200">
                             {headerGroup.headers.map((header) => {
                                 return (
-                                    <TableHead key={header.id}>
+                                    <TableHead
+                                        key={header.id}
+                                        className="h-12 px-4 text-left align-middle font-bold text-slate-800 uppercase tracking-wider text-sm border-b-2 border-slate-100"
+                                        style={{ color: primaryColor ? `${primaryColor}` : undefined }}
+                                    >
                                         {header.isPlaceholder
                                             ? null
                                             : flexRender(
@@ -187,11 +192,14 @@ export function ItemsTable({ columns, data, onEdit, onDelete }: ItemsTableProps)
                 </TableHeader>
                 <TableBody>
                     {table.getRowModel().rows?.length ? (
-                        table.getRowModel().rows.map((row) => (
+                        table.getRowModel().rows.map((row, index) => (
                             <TableRow
                                 key={row.id}
                                 data-state={row.getIsSelected() && "selected"}
-                                className="group hover:bg-slate-50 transition-colors"
+                                className="group transition-colors"
+                                style={{
+                                    backgroundColor: index % 2 === 1 && primaryColor ? `${primaryColor}15` : 'transparent' // approx 8% opacity
+                                }}
                             >
                                 {row.getVisibleCells().map((cell) => (
                                     <TableCell key={cell.id}>

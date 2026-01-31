@@ -33,6 +33,11 @@ export default function DashboardPage() {
         recentActivity: [] as any[]
     })
     const [isLoadingData, setIsLoadingData] = useState(false)
+    const [isMounted, setIsMounted] = useState(false)
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     const supabase = createClient()
 
@@ -60,8 +65,8 @@ export default function DashboardPage() {
                 let dateCol = cols.find((c: any) => c.type === 'date' && /vencimento|prazo|limite|validade/i.test(c.label))?.id
                 if (!dateCol) dateCol = cols.find((c: any) => c.type === 'date')?.id // Fallback to first date
 
-                // Find Currency Column: Priority to "valor", "total", "pre├ºo"
-                let currencyCol = cols.find((c: any) => c.type === 'currency' && /valor|total|pre├ºo|montante/i.test(c.label))?.id
+                // Find Currency Column: Priority to "valor", "total", "preço"
+                let currencyCol = cols.find((c: any) => c.type === 'currency' && /valor|total|preço|montante/i.test(c.label))?.id
                 if (!currencyCol) currencyCol = cols.find((c: any) => c.type === 'currency')?.id // Fallback
 
                 // Find Status Column
@@ -107,10 +112,10 @@ export default function DashboardPage() {
                         }
                     }
 
-                    // Active Status (naive check for 'Ativo' or 'Em Execu├º├úo')
+                    // Active Status (naive check for 'Ativo' or 'Em Execução')
                     if (statusCol && itemData[statusCol]) {
                         const status = String(itemData[statusCol]).toLowerCase()
-                        if (status.includes('ativo') || status.includes('execu├º├úo') || status.includes('andamento') || status.includes('vigente')) {
+                        if (status.includes('ativo') || status.includes('execução') || status.includes('andamento') || status.includes('vigente')) {
                             active++
                         }
                     }
@@ -143,7 +148,7 @@ export default function DashboardPage() {
                 const recentActivity = items.slice(0, 5).map(item => ({
                     id: item.id,
                     // Try to find a 'title' or 'object' or first text column
-                    title: item.data[activeService.columns_config?.find((c: any) => c.type === 'text')?.id || ''] || 'Item sem t├¡tulo',
+                    title: item.data[activeService.columns_config?.find((c: any) => c.type === 'text')?.id || ''] || 'Item sem título',
                     status: statusCol ? item.data[statusCol] : 'Registrado',
                     created_at: item.created_at
                 }))
@@ -201,7 +206,7 @@ export default function DashboardPage() {
             {activeService && (
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                     {/* Card 1: Total Count */}
-                    <Card>
+                    <Card className="min-w-0">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
                             <CardTitle className="text-xs font-medium">
                                 Total de {activeService?.name || 'Itens'}
@@ -214,19 +219,21 @@ export default function DashboardPage() {
                                 Registrados
                             </p>
                             {/* Keeping visual charts as placeholders for aesthetic consistency */}
-                            <div className="h-[35px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={dashboardData.monthlyData.length ? dashboardData.monthlyData : [{ value: 0 }]}>
-                                        <Area type="monotone" dataKey="total" stroke="#2563eb" fill="#3b82f6" fillOpacity={0.2} strokeWidth={2} />
-                                        <Tooltip cursor={false} content={() => null} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                            <div className="h-[35px] w-full min-w-0">
+                                {isMounted && (
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
+                                        <AreaChart data={dashboardData.monthlyData.length ? dashboardData.monthlyData : [{ value: 0 }]}>
+                                            <Area type="monotone" dataKey="total" stroke="#2563eb" fill="#3b82f6" fillOpacity={0.2} strokeWidth={2} />
+                                            <Tooltip cursor={false} content={() => null} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
 
                     {/* Card 2: Total Value */}
-                    <Card>
+                    <Card className="min-w-0">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
                             <CardTitle className="text-xs font-medium">
                                 Valor Total Ativo
@@ -238,24 +245,26 @@ export default function DashboardPage() {
                                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(dashboardData.totalValue)}
                             </div>
                             <p className="text-[10px] text-muted-foreground mb-2">
-                                Somat├│rio financeiro
+                                Somatório financeiro
                             </p>
-                            <div className="h-[35px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={[{ value: 100 }, { value: 120 }, { value: dashboardData.totalValue }]}>
-                                        <Area type="monotone" dataKey="value" stroke="#10b981" fill="#10b981" fillOpacity={0.2} strokeWidth={2} />
-                                        <Tooltip cursor={false} content={() => null} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                            <div className="h-[35px] w-full min-w-0">
+                                {isMounted && (
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
+                                        <AreaChart data={[{ value: 100 }, { value: 120 }, { value: dashboardData.totalValue }]}>
+                                            <Area type="monotone" dataKey="value" stroke="#10b981" fill="#10b981" fillOpacity={0.2} strokeWidth={2} />
+                                            <Tooltip cursor={false} content={() => null} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
 
                     {/* Card 3: Expiring (Split) */}
-                    <Card>
+                    <Card className="min-w-0">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
                             <CardTitle className="text-xs font-medium">
-                                Pr├│ximos Vencimentos
+                                Próximos Vencimentos
                             </CardTitle>
                             <AlertCircle className="h-3 w-3 text-muted-foreground" />
                         </CardHeader>
@@ -265,13 +274,15 @@ export default function DashboardPage() {
                                 <div className="border-r pr-2">
                                     <p className="text-[10px] font-medium text-muted-foreground mb-0.5">90 Dias</p>
                                     <div className="text-lg font-bold text-yellow-600">{dashboardData.expiring90Count}</div>
-                                    <div className="h-[25px] w-full mt-1">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={[{ value: 2 }, { value: dashboardData.expiring90Count }, { value: 4 }]}>
-                                                <Area type="monotone" dataKey="value" stroke="#ca8a04" fill="#facc15" fillOpacity={0.2} strokeWidth={2} />
-                                                <Tooltip cursor={false} content={() => null} />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
+                                    <div className="h-[25px] w-full mt-1 min-w-0">
+                                        {isMounted && (
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
+                                                <AreaChart data={[{ value: 2 }, { value: dashboardData.expiring90Count }, { value: 4 }]}>
+                                                    <Area type="monotone" dataKey="value" stroke="#ca8a04" fill="#facc15" fillOpacity={0.2} strokeWidth={2} />
+                                                    <Tooltip cursor={false} content={() => null} />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        )}
                                     </div>
                                 </div>
 
@@ -279,13 +290,15 @@ export default function DashboardPage() {
                                 <div className="pl-1">
                                     <p className="text-[10px] font-medium text-muted-foreground mb-0.5">30 Dias</p>
                                     <div className="text-lg font-bold text-red-600">{dashboardData.expiringCount}</div>
-                                    <div className="h-[25px] w-full mt-1">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart data={[{ value: 5 }, { value: dashboardData.expiringCount }, { value: 2 }]}>
-                                                <Area type="monotone" dataKey="value" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} strokeWidth={2} />
-                                                <Tooltip cursor={false} content={() => null} />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
+                                    <div className="h-[25px] w-full mt-1 min-w-0">
+                                        {isMounted && (
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
+                                                <AreaChart data={[{ value: 5 }, { value: dashboardData.expiringCount }, { value: 2 }]}>
+                                                    <Area type="monotone" dataKey="value" stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} strokeWidth={2} />
+                                                    <Tooltip cursor={false} content={() => null} />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -293,25 +306,27 @@ export default function DashboardPage() {
                     </Card>
 
                     {/* Card 4: Active Status */}
-                    <Card>
+                    <Card className="min-w-0">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
                             <CardTitle className="text-xs font-medium">
-                                Em Execu├º├úo
+                                Em Execução
                             </CardTitle>
                             <Activity className="h-3 w-3 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="pb-2">
                             <div className="text-xl font-bold">{dashboardData.activeCount}</div>
                             <p className="text-[10px] text-muted-foreground mb-2">
-                                {dashboardData.totalCount > 0 ? Math.round((dashboardData.activeCount / dashboardData.totalCount) * 100) : 0}% do portf├│lio
+                                {dashboardData.totalCount > 0 ? Math.round((dashboardData.activeCount / dashboardData.totalCount) * 100) : 0}% do portfólio
                             </p>
-                            <div className="h-[35px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={[{ value: 10 }, { value: 30 }, { value: dashboardData.activeCount }]}>
-                                        <Area type="monotone" dataKey="value" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} strokeWidth={2} />
-                                        <Tooltip cursor={false} content={() => null} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                            <div className="h-[35px] w-full min-w-0">
+                                {isMounted && (
+                                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
+                                        <AreaChart data={[{ value: 10 }, { value: 30 }, { value: dashboardData.activeCount }]}>
+                                            <Area type="monotone" dataKey="value" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} strokeWidth={2} />
+                                            <Tooltip cursor={false} content={() => null} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -320,35 +335,39 @@ export default function DashboardPage() {
 
             {activeService && (
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-7">
-                    <Card className="col-span-4">
+                    <Card className="col-span-4 min-w-0">
                         <CardHeader className="pb-2">
                             <CardTitle className="text-base">Novos Itens (6 Meses)</CardTitle>
                         </CardHeader>
                         <CardContent className="pl-0 pb-2">
-                            <div className="h-[200px] w-full">
+                            <div className="h-[200px] w-full min-w-0">
                                 {dashboardData.monthlyData.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={dashboardData.monthlyData}>
-                                            <XAxis
-                                                dataKey="name"
-                                                stroke="#888888"
-                                                fontSize={10}
-                                                tickLine={false}
-                                                axisLine={false}
-                                            />
-                                            <YAxis
-                                                stroke="#888888"
-                                                fontSize={10}
-                                                tickLine={false}
-                                                axisLine={false}
-                                            />
-                                            <Tooltip
-                                                cursor={{ fill: 'transparent' }}
-                                                contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
-                                            />
-                                            <Bar dataKey="total" fill={activeService?.primary_color || "#0f172a"} radius={[4, 4, 0, 0]} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                    <div className="w-full h-full">
+                                        {isMounted && (
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
+                                                <BarChart data={dashboardData.monthlyData}>
+                                                    <XAxis
+                                                        dataKey="name"
+                                                        stroke="#888888"
+                                                        fontSize={10}
+                                                        tickLine={false}
+                                                        axisLine={false}
+                                                    />
+                                                    <YAxis
+                                                        stroke="#888888"
+                                                        fontSize={10}
+                                                        tickLine={false}
+                                                        axisLine={false}
+                                                    />
+                                                    <Tooltip
+                                                        cursor={{ fill: 'transparent' }}
+                                                        contentStyle={{ borderRadius: '8px', fontSize: '12px' }}
+                                                    />
+                                                    <Bar dataKey="total" fill={activeService?.primary_color || "#0f172a"} radius={[4, 4, 0, 0]} />
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        )}
+                                    </div>
                                 ) : (
                                     <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                                         Sem dados suficientes
@@ -391,7 +410,7 @@ export default function DashboardPage() {
 
             {!activeService && (
                 <div className="flex items-center justify-center p-10 text-muted-foreground">
-                    Selecione um servi├ºo para visualizar os dados.
+                    Selecione um serviço para visualizar os dados.
                 </div>
             )}
         </div>
