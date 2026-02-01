@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 import { useGroup, AccessGroup } from "@/contexts/GroupContext"
 
@@ -63,10 +64,18 @@ export function GroupsManager({ autoOpenCreate = false }: { autoOpenCreate?: boo
         }
     }
 
-    const handleDeleteGroup = async (id: string) => {
-        if (!confirm("Tem certeza? Isso removerá o acesso de todos os membros.")) return
-        await deleteGroupContext(id)
-        if (selectedGroup?.id === id) setSelectedGroup(null)
+    const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
+
+    const handleDeleteGroup = (id: string) => {
+        setGroupToDelete(id)
+    }
+
+    const confirmDeleteGroup = async () => {
+        if (!groupToDelete) return
+        await deleteGroupContext(groupToDelete)
+        if (selectedGroup?.id === groupToDelete) setSelectedGroup(null)
+        setGroupToDelete(null)
+        toast.success("Grupo excluído.")
     }
 
     return (
@@ -167,6 +176,15 @@ export function GroupsManager({ autoOpenCreate = false }: { autoOpenCreate?: boo
                     </div>
                 )}
             </div>
+
+            <ConfirmDialog
+                open={!!groupToDelete}
+                onOpenChange={(open) => !open && setGroupToDelete(null)}
+                onConfirm={confirmDeleteGroup}
+                title="Excluir Grupo?"
+                description="Isso removerá o acesso de todos os membros associados a este grupo. Esta ação não pode ser desfeita."
+                variant="destructive"
+            />
         </div>
     )
 }

@@ -13,6 +13,7 @@ import { ShareServiceDialog } from "@/components/services/ShareServiceDialog"
 import { ServiceInfoDialog } from "@/components/services/ServiceInfoDialog"
 import { ServiceChatTrigger } from "@/components/chat/ServiceChatTrigger"
 import { ServiceChatSheet } from "@/components/chat/ServiceChatSheet"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function ServicePage() {
     const params = useParams()
@@ -75,15 +76,63 @@ export default function ServicePage() {
         return () => { isMounted = false }
     }, [activeService?.id, slug, supabase]) // Depend on ID, not full object
 
+    const uploadFiles = async (files: FileList): Promise<any[]> => {
+        const uploaded: any[] = []
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i]
+            const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`
+            const filePath = `${activeService?.id}/${fileName}`
+
+            const { data, error } = await supabase.storage
+                .from('attachments')
+                .upload(filePath, file)
+
+            if (error) {
+                console.error(`Error uploading ${file.name}:`, error)
+                toast.error(`Erro ao enviar ${file.name}`)
+                continue
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('attachments')
+                .getPublicUrl(filePath)
+
+            uploaded.push({
+                name: file.name,
+                url: publicUrl,
+                type: file.type,
+                size: file.size,
+                path: filePath
+            })
+        }
+        return uploaded
+    }
+
     const handleSaveItem = async (formData: any) => {
         if (!activeService) return
 
         try {
+            // Extract files
+            const files = formData.files_upload as FileList
+            delete formData.files_upload
+
+            let attachments: any[] = []
+            if (files && files.length > 0) {
+                toast.info("Enviando arquivos...")
+                attachments = await uploadFiles(files)
+            }
+
+            // Combine data
+            const itemData = {
+                ...formData,
+                attachments: attachments.length > 0 ? attachments : undefined
+            }
+
             const { error } = await supabase
                 .from('items')
                 .insert({
                     service_id: activeService.id,
-                    data: formData
+                    data: itemData
                 })
 
             if (error) throw error
@@ -151,22 +200,30 @@ export default function ServicePage() {
 
     // ... (useEffect fetches)
 
-    const handleDeleteItem = async (item: any) => {
-        if (confirm("Tem certeza que deseja excluir este item?")) {
-            try {
-                const { error } = await supabase
-                    .from('items')
-                    .delete()
-                    .eq('id', item.id)
+    const [itemToDelete, setItemToDelete] = useState<any | null>(null)
 
-                if (error) throw error
+    const handleDeleteItem = (item: any) => {
+        setItemToDelete(item)
+    }
 
-                toast.success("Item excluído.")
-                setItems(prev => prev.filter(i => i.id !== item.id))
-            } catch (e: any) {
-                console.error("Error deleting item:", e)
-                toast.error("Erro ao excluir item.")
-            }
+    const confirmDelete = async () => {
+        if (!itemToDelete) return
+
+        try {
+            const { error } = await supabase
+                .from('items')
+                .delete()
+                .eq('id', itemToDelete.id)
+
+            if (error) throw error
+
+            toast.success("Item excluído.")
+            setItems(prev => prev.filter(i => i.id !== itemToDelete.id))
+        } catch (e: any) {
+            console.error("Error deleting item:", e)
+            toast.error("Erro ao excluir item.")
+        } finally {
+            setItemToDelete(null)
         }
     }
 
@@ -174,10 +231,29 @@ export default function ServicePage() {
         if (!activeService || !editingItem) return
 
         try {
+            // Extract files
+            const files = formData.files_upload as FileList
+            delete formData.files_upload
+
+            let newAttachments: any[] = []
+            if (files && files.length > 0) {
+                toast.info("Enviando arquivos...")
+                newAttachments = await uploadFiles(files)
+            }
+
+            // Merge with existing attachments if any
+            const existingAttachments = editingItem.attachments || []
+            const finalAttachments = [...existingAttachments, ...newAttachments]
+
+            const itemData = {
+                ...formData,
+                attachments: finalAttachments.length > 0 ? finalAttachments : undefined
+            }
+
             const { error } = await supabase
                 .from('items')
                 .update({
-                    data: formData // We update the JSONB data
+                    data: itemData // We update the JSONB data
                 })
                 .eq('id', editingItem.id)
 
@@ -187,7 +263,7 @@ export default function ServicePage() {
             setEditingItem(null)
 
             // Refresh items (or optimistic update)
-            setItems(prev => prev.map(i => i.id === editingItem.id ? { ...i, ...formData } : i))
+            setItems(prev => prev.map(i => i.id === editingItem.id ? { ...i, ...itemData } : i))
 
             // Re-fetch to be safe (optional)
         } catch (err: any) {
@@ -289,6 +365,15 @@ export default function ServicePage() {
                 serviceId={activeService.id}
                 serviceName={activeService.name}
                 primaryColor={activeService.primary_color}
+            />
+
+            <ConfirmDialog
+                open={!!itemToDelete}
+                onOpenChange={(open) => !open && setItemToDelete(null)}
+                onConfirm={confirmDelete}
+                title="Excluir item"
+                description="Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita."
+                variant="destructive"
             />
         </div>
     )

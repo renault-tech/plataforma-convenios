@@ -138,7 +138,7 @@ function InboxDashboard({ services }: { services: any[] }) {
 
   return (
     <div
-      className="space-y-8 max-w-6xl mx-auto -m-8 p-8"
+      className="space-y-8 w-full -m-8 p-8"
       style={{
         background: activeService ? `linear-gradient(to bottom, ${activeService.primary_color}15 0%, #ffffff 400px)` : undefined
       }}
@@ -153,7 +153,7 @@ function InboxDashboard({ services }: { services: any[] }) {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         <Card className="bg-white border-blue-100 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-slate-700">Alertas e Prazos</CardTitle>
@@ -186,15 +186,15 @@ function InboxDashboard({ services }: { services: any[] }) {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {/* Main Content: Services */}
-        <div className="md:col-span-2 space-y-6">
+        <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4 space-y-6">
           <Card className="border-slate-200 shadow-sm">
             <CardHeader>
               <CardTitle>Meus Aplicativos</CardTitle>
               <CardDescription>Acesso rápido aos seus serviços gerenciados.</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
+            <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {services.map(service => (
                 <Link key={service.id} href={`/servicos/${service.slug}`}>
                   <div className="group flex items-center p-4 border rounded-xl hover:bg-slate-50 hover:border-blue-300 transition-all cursor-pointer bg-white h-full">
@@ -222,7 +222,7 @@ function InboxDashboard({ services }: { services: any[] }) {
         </div>
 
         {/* Sidebar: Notifications */}
-        <div className="md:col-span-1">
+        <div className="md:col-span-1 xl:col-span-1 2xl:col-span-1">
           <DashboardNotifications notifications={notifications} onRefresh={fetchNotes} />
         </div>
       </div>

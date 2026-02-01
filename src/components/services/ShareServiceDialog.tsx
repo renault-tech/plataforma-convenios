@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 interface ShareServiceDialogProps {
     service: Service
@@ -225,161 +226,178 @@ export function ShareServiceDialog({ service }: ShareServiceDialogProps) {
         }
     }
 
-    const removePermission = async (id: string) => {
-        if (!confirm("Remover este acesso?")) return
+    const [permToDelete, setPermToDelete] = useState<string | null>(null)
 
-        const { error } = await supabase.from('service_permissions').delete().eq('id', id)
+    const removePermission = (id: string) => {
+        setPermToDelete(id)
+    }
+
+    const confirmRemovePermission = async () => {
+        if (!permToDelete) return
+        const { error } = await supabase.from('service_permissions').delete().eq('id', permToDelete)
         if (error) {
             toast.error("Erro ao remover")
         } else {
-            setPermissions(prev => prev.filter(p => p.id !== id))
+            setPermissions(prev => prev.filter(p => p.id !== permToDelete))
             toast.success("Acesso removido")
         }
+        setPermToDelete(null)
     }
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                    <Share2 className="h-4 w-4" />
-                    Compartilhar
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Compartilhar "{service.name}"</DialogTitle>
-                    <DialogDescription>
-                        Gerencie quem pode visualizar ou editar este serviço.
-                    </DialogDescription>
-                </DialogHeader>
+        <>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 h-9">
+                        <Share2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">Compartilhar</span>
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Compartilhar "{service.name}"</DialogTitle>
+                        <DialogDescription>
+                            Gerencie quem pode visualizar ou editar este serviço.
+                        </DialogDescription>
+                    </DialogHeader>
 
-                <div className="space-y-6 py-4">
-                    {/* Share Form */}
-                    <div className="p-4 bg-slate-50 border rounded-lg space-y-4">
-                        <Label>Adicionar novo acesso</Label>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
-                                <Select value={selectedType} onValueChange={(v: any) => { setSelectedType(v); setSelectedGranteeId("") }}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="group">Grupo</SelectItem>
-                                        <SelectItem value="user">Usuário</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label className="text-xs text-muted-foreground mb-1 block">
-                                    {selectedType === 'group' ? 'Selecionar Grupo' : 'Selecionar Usuário'}
-                                </Label>
-                                <div className="flex gap-2">
-                                    <Select value={selectedGranteeId} onValueChange={setSelectedGranteeId}>
-                                        <SelectTrigger className="flex-1">
-                                            <SelectValue placeholder="Selecione..." />
+                    <div className="space-y-6 py-4">
+                        {/* Share Form */}
+                        <div className="p-4 bg-slate-50 border rounded-lg space-y-4">
+                            <Label>Adicionar novo acesso</Label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label className="text-xs text-muted-foreground mb-1 block">Tipo</Label>
+                                    <Select value={selectedType} onValueChange={(v: any) => { setSelectedType(v); setSelectedGranteeId("") }}>
+                                        <SelectTrigger>
+                                            <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {selectedType === 'group' ? (
-                                                accessGroups.map(g => (
-                                                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                                                ))
-                                            ) : (
-                                                users.map(u => (
-                                                    <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>
-                                                ))
-                                            )}
+                                            <SelectItem value="group">Grupo</SelectItem>
+                                            <SelectItem value="user">Usuário</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    {selectedType === 'group' && (
-                                        <Button variant="outline" size="icon" title="Criar Novo Grupo" asChild>
-                                            <a href="/configuracoes?tab=grupos&action=new">
-                                                <Plus className="h-4 w-4" />
-                                            </a>
-                                        </Button>
-                                    )}
                                 </div>
-                            </div>
-                            <div>
-                                <Label className="text-xs text-muted-foreground mb-1 block">Permissão</Label>
-                                <Select value={selectedLevel} onValueChange={(v: any) => setSelectedLevel(v)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="view">Visualizar</SelectItem>
-                                        <SelectItem value="edit">Editar (Completo)</SelectItem>
-                                        <SelectItem value="admin">Administrar</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-1 mb-1" title="Restringe quais linhas o usuário pode ver (ex: Apenas SP)">
-                                    <Label className="text-xs text-muted-foreground block">Filtro de Dados (Opcional)</Label>
-                                    <Shield className="h-3 w-3 text-slate-400" />
-                                </div>
-                                <Select value={selectedPolicyId} onValueChange={setSelectedPolicyId}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Sem restrição (Acesso total)" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Acesso Total (Ver tudo)</SelectItem>
-                                        {accessPolicies.map(p => (
-                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <Button className="w-full" onClick={handleShare}>Conceder Acesso</Button>
-                    </div>
-
-                    {/* Permissions List */}
-                    <div>
-                        <Label className="mb-2 block">Acessos Ativos</Label>
-                        <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                            {permissions.map(perm => (
-                                <div key={perm.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center">
-                                            {perm.grantee_type === 'group' || perm.origin_group_id ? <Users className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-                                        </div>
-                                        <div>
-                                            <div className="font-medium text-sm">
-                                                {perm.grantee_details?.name || perm.grantee_details?.full_name || 'Desconhecido'}
-                                                {perm.origin_group_id && <span className="text-[10px] text-muted-foreground ml-2">(Via Grupo)</span>}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground flex items-center gap-2">
-                                                <Badge variant="secondary" className="text-[10px] h-4">
-                                                    {perm.permission_level === 'view' ? 'Ver' : perm.permission_level === 'edit' ? 'Editar' : 'Admin'}
-                                                </Badge>
-                                                {perm.policy_id ? (
-                                                    <span className="flex items-center text-orange-600">
-                                                        <Lock className="h-3 w-3 mr-1" />
-                                                        {perm.policy_details?.name || 'Restrito'}
-                                                    </span>
+                                <div>
+                                    <Label className="text-xs text-muted-foreground mb-1 block">
+                                        {selectedType === 'group' ? 'Selecionar Grupo' : 'Selecionar Usuário'}
+                                    </Label>
+                                    <div className="flex gap-2">
+                                        <Select value={selectedGranteeId} onValueChange={setSelectedGranteeId}>
+                                            <SelectTrigger className="flex-1">
+                                                <SelectValue placeholder="Selecione..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {selectedType === 'group' ? (
+                                                    accessGroups.map(g => (
+                                                        <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                                                    ))
                                                 ) : (
-                                                    <span className="text-green-600 flex items-center">
-                                                        <Shield className="h-3 w-3 mr-1" />
-                                                        Acesso Total
-                                                    </span>
+                                                    users.map(u => (
+                                                        <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>
+                                                    ))
                                                 )}
-                                                {perm.id && !perm.grantee_details && <span className="text-red-400">Pendente</span>}
+                                            </SelectContent>
+                                        </Select>
+                                        {selectedType === 'group' && (
+                                            <Button variant="outline" size="icon" title="Criar Novo Grupo" asChild>
+                                                <a href="/configuracoes?tab=grupos&action=new">
+                                                    <Plus className="h-4 w-4" />
+                                                </a>
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-muted-foreground mb-1 block">Permissão</Label>
+                                    <Select value={selectedLevel} onValueChange={(v: any) => setSelectedLevel(v)}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="view">Visualizar</SelectItem>
+                                            <SelectItem value="edit">Editar (Completo)</SelectItem>
+                                            <SelectItem value="admin">Administrar</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-1 mb-1" title="Restringe quais linhas o usuário pode ver (ex: Apenas SP)">
+                                        <Label className="text-xs text-muted-foreground block">Filtro de Dados (Opcional)</Label>
+                                        <Shield className="h-3 w-3 text-slate-400" />
+                                    </div>
+                                    <Select value={selectedPolicyId} onValueChange={setSelectedPolicyId}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Sem restrição (Acesso total)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">Acesso Total (Ver tudo)</SelectItem>
+                                            {accessPolicies.map(p => (
+                                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <Button className="w-full" onClick={handleShare}>Conceder Acesso</Button>
+                        </div>
+
+                        {/* Permissions List */}
+                        <div>
+                            <Label className="mb-2 block">Acessos Ativos</Label>
+                            <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                                {permissions.map(perm => (
+                                    <div key={perm.id} className="flex items-center justify-between p-3 border rounded-lg bg-white">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center">
+                                                {perm.grantee_type === 'group' || perm.origin_group_id ? <Users className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
+                                            </div>
+                                            <div>
+                                                <div className="font-medium text-sm">
+                                                    {perm.grantee_details?.name || perm.grantee_details?.full_name || 'Desconhecido'}
+                                                    {perm.origin_group_id && <span className="text-[10px] text-muted-foreground ml-2">(Via Grupo)</span>}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                                    <Badge variant="secondary" className="text-[10px] h-4">
+                                                        {perm.permission_level === 'view' ? 'Ver' : perm.permission_level === 'edit' ? 'Editar' : 'Admin'}
+                                                    </Badge>
+                                                    {perm.policy_id ? (
+                                                        <span className="flex items-center text-orange-600">
+                                                            <Lock className="h-3 w-3 mr-1" />
+                                                            {perm.policy_details?.name || 'Restrito'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-green-600 flex items-center">
+                                                            <Shield className="h-3 w-3 mr-1" />
+                                                            Acesso Total
+                                                        </span>
+                                                    )}
+                                                    {perm.id && !perm.grantee_details && <span className="text-red-400">Pendente</span>}
+                                                </div>
                                             </div>
                                         </div>
+                                        <Button variant="ghost" size="icon" onClick={() => removePermission(perm.id)}>
+                                            <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500" />
+                                        </Button>
                                     </div>
-                                    <Button variant="ghost" size="icon" onClick={() => removePermission(perm.id)}>
-                                        <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-500" />
-                                    </Button>
-                                </div>
-                            ))}
-                            {permissions.length === 0 && !loading && (
-                                <p className="text-sm text-center text-muted-foreground py-4">Nenhum acesso compartilhado.</p>
-                            )}
+                                ))}
+                                {permissions.length === 0 && !loading && (
+                                    <p className="text-sm text-center text-muted-foreground py-4">Nenhum acesso compartilhado.</p>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            </DialogContent>
-        </Dialog>
+                </DialogContent>
+            </Dialog>
+
+            <ConfirmDialog
+                open={!!permToDelete}
+                onOpenChange={(open) => !open && setPermToDelete(null)}
+                onConfirm={confirmRemovePermission}
+                title="Remover acesso?"
+                description="O usuário/grupo perderá o acesso a este serviço imediatamente."
+                variant="destructive"
+            />
+        </>
     )
 }

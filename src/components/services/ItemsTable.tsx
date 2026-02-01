@@ -7,6 +7,8 @@ import {
     getCoreRowModel,
     useReactTable,
     CellContext,
+    SortingState,
+    getSortedRowModel,
 } from "@tanstack/react-table"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -43,16 +45,40 @@ import { Pencil, Trash2, AlertCircle, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { differenceInDays, parseISO, isAfter } from "date-fns"
 
+import { ChevronDown, ChevronRight, Paperclip, FileText, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { RowDetails } from "@/components/ui/RowDetails"
+import { getExpandedRowModel } from "@tanstack/react-table"
+
 export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor }: ItemsTableProps) {
+    const [sorting, setSorting] = React.useState<SortingState>([])
+
     const tableColumns: ColumnDef<any>[] = React.useMemo(() => {
-        // Find Date Column for Alerts
+        // ... (existing helper logic) ...
         const dateColId = columns.find((c) => c.type === 'date' && /vencimento|prazo|limite|validade/i.test(c.label))?.id
             || columns.find((c) => c.type === 'date')?.id
 
-        const baseCols = columns.map((col) => ({
+        const baseCols: ColumnDef<any>[] = columns.map((col) => ({
             accessorKey: col.id,
-            header: col.label,
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        className="-ml-4 h-8 data-[state=open]:bg-accent hover:bg-slate-100/50"
+                    >
+                        {col.label}
+                        {column.getIsSorted() === "asc" ? (
+                            <ArrowUp className="ml-2 h-3 w-3" />
+                        ) : column.getIsSorted() === "desc" ? (
+                            <ArrowDown className="ml-2 h-3 w-3" />
+                        ) : (
+                            <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />
+                        )}
+                    </Button>
+                )
+            },
             cell: ({ getValue }: CellContext<any, unknown>) => {
+                // ... (existing cell logic) ...
                 const value = getValue() as string | number | null | undefined
 
                 if (col.type === "currency") {
@@ -88,23 +114,59 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor }: It
             },
         }))
 
-        // Add Actions Column with Alerts
+        // ... (rest of logic)
+
+        // Add Expansion Column (Leftmost)
+        baseCols.unshift({
+            id: "expander",
+            header: "",
+            cell: ({ row }) => {
+                // ... existing expansion cell
+                const hasDetails = !!row.original.details
+                const hasAttachments = row.original.attachments && row.original.attachments.length > 0
+                return (
+                    <div className="flex items-center gap-1">
+                        {row.getCanExpand() ? (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    row.toggleExpanded()
+                                }}
+                                className="p-1 rounded hover:bg-slate-100 text-slate-400 transition-colors"
+                            >
+                                {row.getIsExpanded() ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                )}
+                            </button>
+                        ) : null}
+                        {!row.getIsExpanded() && (
+                            <div className="flex gap-0.5">
+                                {hasDetails && <FileText className="h-3 w-3 text-blue-400" />}
+                                {hasAttachments && <Paperclip className="h-3 w-3 text-emerald-400" />}
+                            </div>
+                        )}
+                    </div>
+                )
+            },
+        })
+
+        // Add Actions Column
         if (onEdit || onDelete || dateColId) {
             baseCols.push({
                 id: "actions",
                 header: "",
                 cell: ({ row }: CellContext<any, unknown>) => {
-                    // Alert Logic
+                    // ... existing logic for actions
                     let AlertIcon = null
                     if (dateColId) {
-                        // Fix: The data is flattened in the parent component (spread ...item.data),
-                        // so we access it directly on row.original, not row.original.data
                         const dateVal = row.original?.[dateColId]
                         if (dateVal && typeof dateVal === 'string') {
                             try {
                                 const itemDate = parseISO(dateVal)
                                 const today = new Date()
-                                // Check if future
                                 if (isAfter(itemDate, today)) {
                                     const days = differenceInDays(itemDate, today)
                                     if (days <= 30) {
@@ -134,7 +196,10 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor }: It
                                         variant="ghost"
                                         size="icon"
                                         className="h-8 w-8 hover:bg-blue-100 hover:text-blue-600 text-slate-400"
-                                        onClick={() => onEdit(row.original)}
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            onEdit(row.original)
+                                        }}
                                     >
                                         <Pencil className="h-4 w-4" />
                                     </Button>
@@ -144,7 +209,10 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor }: It
                                         variant="ghost"
                                         size="icon"
                                         className="h-8 w-8 hover:bg-red-50 hover:text-red-600 text-slate-400"
-                                        onClick={() => onDelete(row.original)}
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            onDelete(row.original)
+                                        }}
                                     >
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -163,63 +231,82 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor }: It
         data,
         columns: tableColumns,
         getCoreRowModel: getCoreRowModel(),
+        getExpandedRowModel: getExpandedRowModel(),
+        getRowCanExpand: () => true,
+        onSortingChange: setSorting,
+        getSortedRowModel: getSortedRowModel(),
+        state: {
+            sorting,
+        },
     })
 
     return (
-        <div className="rounded-md border bg-white shadow-sm">
-            <Table>
-                <TableHeader>
-                    {table.getHeaderGroups().map((headerGroup) => (
-                        <TableRow key={headerGroup.id} className="hover:bg-transparent border-slate-200">
-                            {headerGroup.headers.map((header) => {
-                                return (
-                                    <TableHead
-                                        key={header.id}
-                                        className="h-12 px-4 text-left align-middle font-bold text-slate-800 uppercase tracking-wider text-sm border-b-2 border-slate-100"
-                                        style={{ color: primaryColor ? `${primaryColor}` : undefined }}
-                                    >
-                                        {header.isPlaceholder
-                                            ? null
-                                            : flexRender(
-                                                header.column.columnDef.header,
-                                                header.getContext()
-                                            )}
-                                    </TableHead>
-                                )
-                            })}
-                        </TableRow>
-                    ))}
-                </TableHeader>
-                <TableBody>
-                    {table.getRowModel().rows?.length ? (
-                        table.getRowModel().rows.map((row, index) => (
-                            <TableRow
-                                key={row.id}
-                                data-state={row.getIsSelected() && "selected"}
-                                className="group transition-colors"
-                                style={{
-                                    backgroundColor: index % 2 === 1 && primaryColor ? `${primaryColor}15` : 'transparent' // approx 8% opacity
-                                }}
-                            >
-                                {row.getVisibleCells().map((cell) => (
-                                    <TableCell key={cell.id}>
-                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                    </TableCell>
-                                ))}
+        <div className="rounded-md border bg-white shadow-sm overflow-hidden">
+            {/* Wrapper for horizontal scroll on small screens */}
+            <div className="overflow-x-auto">
+                <Table className="min-w-full">
+                    <TableHeader>
+                        {table.getHeaderGroups().map((headerGroup) => (
+                            <TableRow key={headerGroup.id} className="hover:bg-transparent border-slate-200">
+                                {headerGroup.headers.map((header) => {
+                                    return (
+                                        <TableHead
+                                            key={header.id}
+                                            className="h-12 px-4 text-left align-middle font-bold text-slate-800 uppercase tracking-wider text-sm border-b-2 border-slate-100 whitespace-nowrap"
+                                            style={{ color: primaryColor ? `${primaryColor}` : undefined }}
+                                        >
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                    header.column.columnDef.header,
+                                                    header.getContext()
+                                                )}
+                                        </TableHead>
+                                    )
+                                })}
                             </TableRow>
-                        ))
-                    ) : (
-                        <TableRow>
-                            <TableCell
-                                colSpan={columns.length + (onEdit || onDelete ? 1 : 0)}
-                                className="h-24 text-center text-muted-foreground"
-                            >
-                                Nenhum item encontrado.
-                            </TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-            </Table>
+                        ))}
+                    </TableHeader>
+                    <TableBody>
+                        {table.getRowModel().rows?.length ? (
+                            table.getRowModel().rows.map((row, index) => (
+                                <React.Fragment key={row.id}>
+                                    <TableRow
+                                        data-state={row.getIsSelected() && "selected"}
+                                        className="group transition-colors cursor-pointer hover:bg-slate-50"
+                                        style={{
+                                            backgroundColor: (index % 2 === 1 && primaryColor && !row.getIsExpanded()) ? `${primaryColor}08` : undefined
+                                        }}
+                                        onClick={() => row.toggleExpanded()}
+                                    >
+                                        {row.getVisibleCells().map((cell) => (
+                                            <TableCell key={cell.id} className="whitespace-nowrap">
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </TableCell>
+                                        ))}
+                                    </TableRow>
+                                    {row.getIsExpanded() && (
+                                        <TableRow className="hover:bg-transparent bg-slate-50/30">
+                                            <TableCell colSpan={row.getVisibleCells().length} className="p-0 border-b-2 border-slate-100">
+                                                <RowDetails details={row.original.details} attachments={row.original.attachments} />
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </React.Fragment>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={columns.length + (onEdit || onDelete ? 2 : 1)}
+                                    className="h-24 text-center text-muted-foreground"
+                                >
+                                    Nenhum item encontrado.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
         </div>
     )
 }

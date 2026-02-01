@@ -48,6 +48,7 @@ interface ServiceData {
 
 import { AccessControlView } from "@/components/settings/AccessControlView"
 import { Lock } from "lucide-react"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 function ConfiguracoesContent() {
     const { services, refreshServices, updateService } = useService()
@@ -94,6 +95,7 @@ function ConfiguracoesContent() {
                 <AccessControlView
                     onBack={() => setShowAccessControl(false)}
                     autoOpenGroupCreate={searchParams.get('action') === 'new'}
+                    serviceId={activeTab !== 'new' ? activeTab : undefined}
                 />
             </div>
         )
@@ -397,14 +399,16 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
         }
     }
 
-    const handleDeleteService = async () => {
-        // Double confirmation for safety
-        if (confirm(`Tem certeza que deseja excluir o serviço "${service.name}"?`)) {
-            if (confirm("Esta ação apagará TODOS os dados e configurações deste serviço e não pode ser desfeita. Confirmar exclusão?")) {
-                await deleteService(service.id)
-                toast.success("Serviço excluído.")
-            }
-        }
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+    const handleDeleteService = () => {
+        setShowDeleteConfirm(true)
+    }
+
+    const confirmDeleteService = async () => {
+        await deleteService(service.id)
+        toast.success("Serviço excluído.")
+        setShowDeleteConfirm(false)
     }
 
     return (
@@ -586,6 +590,16 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
                     </CardContent>
                 </Card>
             </div>
+
+            <ConfirmDialog
+                open={showDeleteConfirm}
+                onOpenChange={setShowDeleteConfirm}
+                onConfirm={confirmDeleteService}
+                title={`Excluir serviço "${service.name}"?`}
+                description="Esta ação apagará TODOS os dados, itens e configurações deste serviço e não pode ser desfeita. Tem certeza absoluta?"
+                variant="destructive"
+                confirmText="Sim, excluir serviço"
+            />
         </div>
     )
 }

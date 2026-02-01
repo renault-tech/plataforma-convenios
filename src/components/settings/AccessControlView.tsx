@@ -11,9 +11,10 @@ import { Button } from "@/components/ui/button"
 interface AccessControlViewProps {
     onBack: () => void
     autoOpenGroupCreate?: boolean
+    serviceId?: string
 }
 
-export function AccessControlView({ onBack, autoOpenGroupCreate = false }: AccessControlViewProps) {
+export function AccessControlView({ onBack, autoOpenGroupCreate = false, serviceId }: AccessControlViewProps) {
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex items-center gap-4">
@@ -37,7 +38,7 @@ export function AccessControlView({ onBack, autoOpenGroupCreate = false }: Acces
                 </TabsContent>
 
                 <TabsContent value="policies" className="mt-6">
-                    <PoliciesManager />
+                    <PoliciesManager serviceId={serviceId} />
                 </TabsContent>
             </Tabs>
         </div>
