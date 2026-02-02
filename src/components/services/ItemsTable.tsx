@@ -26,6 +26,7 @@ import { Pencil, Trash2, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, 
 import { Button } from "@/components/ui/button"
 import { RowDetails } from "@/components/ui/RowDetails"
 import { TableScrollWrapper } from "@/components/ui/TableScrollWrapper"
+import { StatusCell } from "@/components/services/StatusCell"
 
 export type ColumnType = 'text' | 'number' | 'date' | 'currency' | 'status' | 'boolean'
 
@@ -42,11 +43,12 @@ interface ItemsTableProps {
     data: any[]
     onEdit?: (item: any) => void
     onDelete?: (item: any) => void
+    onStatusChange?: (id: string, data: any) => Promise<void>
     primaryColor?: string
     lastViewedAt?: string
 }
 
-export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, lastViewedAt }: ItemsTableProps) {
+export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, primaryColor, lastViewedAt }: ItemsTableProps) {
     const [sorting, setSorting] = React.useState<SortingState>([])
 
     const tableColumns: ColumnDef<any>[] = React.useMemo(() => {
@@ -97,6 +99,17 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, last
                     }
 
                     if (col.type === "status") {
+                        if (onStatusChange) {
+                            return (
+                                <StatusCell
+                                    value={value as string}
+                                    rowId={row.original.id}
+                                    columnId={col.id}
+                                    options={col.options}
+                                    onUpdate={onStatusChange}
+                                />
+                            )
+                        }
                         return (
                             <span className={cn(
                                 "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
@@ -124,11 +137,6 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, last
 
                 return (
                     <div className="relative pl-12 flex items-center h-full min-h-[20px]">
-                        {/* Blue Bar REMOVED per user request */}
-                        {/* {isNew && (
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 z-10" title="Novo/Atualizado" />
-                        )} */}
-
                         <div className="absolute left-0 top-0 bottom-0 flex items-center justify-end gap-0.5 w-[44px] pr-1">
                             {/* Indicators (Paperclip/Text) FIRST */}
                             <div className="flex gap-0.5 w-[24px] justify-end">
@@ -233,7 +241,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, last
         }
 
         return baseCols
-    }, [columns, onEdit, onDelete, lastViewedAt])
+    }, [columns, onEdit, onDelete, lastViewedAt, onStatusChange])
 
     const table = useReactTable({
         data,

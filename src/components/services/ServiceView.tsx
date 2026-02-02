@@ -293,6 +293,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                     data={items || []}
                     onEdit={setEditingItem}
                     onDelete={setItemToDelete}
+                    onStatusChange={(id, data) => handleUpdateItem(id, data)}
                     primaryColor={activeService.primary_color}
                     lastViewedAt={lastViewedAt}
                 />

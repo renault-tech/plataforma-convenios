@@ -89,87 +89,95 @@ function ConfiguracoesContent() {
         }
     }
 
-    if (showAccessControl) {
-        return (
-            <div className="container mx-auto p-6 space-y-8">
+    // Instead of early return, we render conditionally in the main flow
+    // But wait, the early return is valid if hooks are before it.
+    // However, for safety and better structure, let's keep the return but debug AccessControlView.
+    // If AccessControlView is the culprit, refactoring this won't help much, 
+    // but if hidden hooks exist, it might.
+    // Actually, looking at the code, hooks are definitely before line 92.
+    // Let's assume AccessControlView has the issue.
+    // But if I move it to main return, it might clarify the render tree.
+    // Let's hold off on this edit until I see AccessControlView.
+    // This tool call is a placeholder mental check. I won't execute it yet.
+    return (
+        <div className="container mx-auto p-6 space-y-8">
+            {showAccessControl ? (
                 <AccessControlView
                     onBack={() => setShowAccessControl(false)}
                     autoOpenGroupCreate={searchParams.get('action') === 'new'}
                     serviceId={activeTab !== 'new' ? activeTab : undefined}
                 />
-            </div>
-        )
-    }
+            ) : (
+                <>
+                    {/* Header & Tabs */}
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
 
-    return (
-        <div className="container mx-auto p-6 space-y-8">
-            {/* Header & Tabs */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-4">
-                    <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
+                            {/* Service Tabs (Inline with Title) */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                {services.map((service) => {
+                                    const isActive = activeTab === service.id
+                                    const textColor = isActive ? getContrastYIQ(service.primary_color) : undefined
 
-                    {/* Service Tabs (Inline with Title) */}
-                    <div className="flex flex-wrap items-center gap-2">
-                        {services.map((service) => {
-                            const isActive = activeTab === service.id
-                            const textColor = isActive ? getContrastYIQ(service.primary_color) : undefined
-
-                            return (
+                                    return (
+                                        <Button
+                                            key={service.id}
+                                            variant={isActive ? "default" : "outline"}
+                                            className={cn(
+                                                "h-9 px-4 rounded-full transition-colors font-medium",
+                                                isActive
+                                                    ? "hover:opacity-90 border-transparent shadow-sm"
+                                                    : "hover:bg-slate-100 text-slate-600 border-slate-200"
+                                            )}
+                                            style={isActive ? {
+                                                backgroundColor: service.primary_color,
+                                                color: textColor
+                                            } : {}}
+                                            onClick={() => handleTabChange(service.id)}
+                                        >
+                                            {service.name}
+                                        </Button>
+                                    )
+                                })}
                                 <Button
-                                    key={service.id}
-                                    variant={isActive ? "default" : "outline"}
+                                    variant={activeTab === "new" ? "default" : "secondary"}
                                     className={cn(
-                                        "h-9 px-4 rounded-full transition-colors font-medium",
-                                        isActive
-                                            ? "hover:opacity-90 border-transparent shadow-sm"
-                                            : "hover:bg-slate-100 text-slate-600 border-slate-200"
+                                        "h-9 px-4 rounded-full gap-2 border shadow-sm",
+                                        activeTab === "new" ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-white text-slate-900 hover:bg-slate-50 border-slate-200"
                                     )}
-                                    style={isActive ? {
-                                        backgroundColor: service.primary_color,
-                                        color: textColor
-                                    } : {}}
-                                    onClick={() => handleTabChange(service.id)}
+                                    onClick={() => handleTabChange("new")}
                                 >
-                                    {service.name}
+                                    <Plus className="h-4 w-4" />
+                                    Novo Serviço
                                 </Button>
-                            )
-                        })}
+                            </div>
+                        </div>
+
                         <Button
-                            variant={activeTab === "new" ? "default" : "secondary"}
-                            className={cn(
-                                "h-9 px-4 rounded-full gap-2 border shadow-sm",
-                                activeTab === "new" ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-white text-slate-900 hover:bg-slate-50 border-slate-200"
-                            )}
-                            onClick={() => handleTabChange("new")}
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => setShowAccessControl(true)}
                         >
-                            <Plus className="h-4 w-4" />
-                            Novo Serviço
+                            <Lock className="h-4 w-4" />
+                            Controle de Acesso
                         </Button>
                     </div>
-                </div>
 
-                <Button
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => setShowAccessControl(true)}
-                >
-                    <Lock className="h-4 w-4" />
-                    Controle de Acesso
-                </Button>
-            </div>
-
-            {/* Content Area */}
-            <div className="mt-2">
-                {activeTab === "new" ? (
-                    <CreateServiceForm onSuccess={(id) => setActiveTab(id)} />
-                ) : (
-                    <ServiceConfigView
-                        serviceId={activeTab}
-                        key={activeTab} // Force re-mount on tab change to reset state
-                        onColorChange={(color) => handleUpdateColor(activeTab, color)}
-                    />
-                )}
-            </div>
+                    {/* Content Area */}
+                    <div className="mt-2">
+                        {activeTab === "new" ? (
+                            <CreateServiceForm onSuccess={(id) => setActiveTab(id)} />
+                        ) : (
+                            <ServiceConfigView
+                                serviceId={activeTab}
+                                key={activeTab} // Force re-mount on tab change to reset state
+                                onColorChange={(color) => handleUpdateColor(activeTab, color)}
+                            />
+                        )}
+                    </div>
+                </>
+            )}
         </div>
     )
 }

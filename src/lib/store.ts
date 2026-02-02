@@ -18,11 +18,16 @@ export interface Agreement {
 interface AppState {
     columns: ColumnDefinition[]
     agreements: Agreement[]
+    zoomLevel: number // 100% = 1.0
     addColumn: (col: ColumnDefinition) => void
     removeColumn: (id: string) => void
     addAgreement: (agreement: Agreement) => void
     updateAgreement: (id: string, data: Partial<Agreement>) => void
     deleteAgreement: (id: string) => void
+    setZoomLevel: (zoom: number) => void
+    increaseZoom: () => void
+    decreaseZoom: () => void
+    resetZoom: () => void
 }
 
 export const useStore = create<AppState>()(
@@ -61,6 +66,7 @@ export const useStore = create<AppState>()(
                     status: 'Concluído'
                 }
             ],
+            zoomLevel: 1.0,
             addColumn: (col) => set((state) => ({ columns: [...state.columns, col] })),
             removeColumn: (id) =>
                 set((state) => ({ columns: state.columns.filter((c) => c.id !== id) })),
@@ -76,6 +82,10 @@ export const useStore = create<AppState>()(
                 set((state) => ({
                     agreements: state.agreements.filter((a) => a.id !== id),
                 })),
+            setZoomLevel: (zoom) => set({ zoomLevel: zoom }),
+            increaseZoom: () => set((state) => ({ zoomLevel: Math.min(state.zoomLevel + 0.1, 1.5) })),
+            decreaseZoom: () => set((state) => ({ zoomLevel: Math.max(state.zoomLevel - 0.1, 0.5) })),
+            resetZoom: () => set({ zoomLevel: 1.0 }),
         }),
         {
             name: 'convenios-storage',

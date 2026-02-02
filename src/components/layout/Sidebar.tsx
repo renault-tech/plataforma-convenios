@@ -34,43 +34,8 @@ export function Sidebar() {
     const [isOpenConversations, setIsOpenConversations] = useState(true)
     const [isChatOpen, setIsChatOpen] = useState(false)
 
-    // Notification State
-    const [unreadCount, setUnreadCount] = useState(0)
-    const supabase = createClient()
+    // Notifications logic removed (handled by Navbar)
     const sidebarRef = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        const fetchNotifications = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
-
-            const { count, error } = await supabase
-                .from('notifications')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .is('read_at', null)
-
-            if (!error && count !== null) {
-                setUnreadCount(count)
-            }
-        }
-
-        fetchNotifications()
-
-        const channel = supabase
-            .channel('sidebar-notifications')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' },
-                () => fetchNotifications()
-            )
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications' },
-                () => fetchNotifications()
-            )
-            .subscribe()
-
-        return () => {
-            supabase.removeChannel(channel)
-        }
-    }, [supabase])
 
 
     const sortedMyServices = myServices || []
@@ -112,14 +77,13 @@ export function Sidebar() {
                                 pathname === "/dashboard" ? "bg-slate-800 text-white" : "hover:text-white hover:bg-slate-800"
                             )}
                         >
-                            <FileText
-                                className="mr-2 h-4 w-4"
-                                style={activeService ? {
-                                    color: activeService.primary_color,
-                                    fill: activeService.primary_color,
-                                    opacity: 1
-                                } : {}}
-                            />
+                            <FileText className="mr-2 h-4 w-4" />
+                            {activeService && (
+                                <div
+                                    className="w-2 h-2 rounded-full mr-2 animate-in fade-in"
+                                    style={{ backgroundColor: activeService.primary_color || '#3b82f6' }}
+                                />
+                            )}
                             Dashboard
                         </Button>
                     </Link>
@@ -187,7 +151,7 @@ export function Sidebar() {
                                             )}
                                             style={isActive ? {
                                                 borderLeft: `8px solid ${service.primary_color || '#3b82f6'}`,
-                                                backgroundColor: `${service.primary_color || '#3b82f6'}15` // approx 8-10% opacity
+                                                backgroundColor: `${service.primary_color || '#3b82f6'}15`
                                             } : {}}
                                         >
                                             <div className="relative mr-2">

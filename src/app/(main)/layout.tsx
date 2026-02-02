@@ -5,6 +5,25 @@ import { Navbar } from "@/components/layout/Navbar";
 import { ServiceProvider } from "@/contexts/ServiceContext";
 import { GroupProvider } from "@/contexts/GroupContext";
 import { ChatProvider } from "@/contexts/ChatContext";
+import { useStore } from "@/lib/store";
+
+function MainContentWrapper({ children }: { children: React.ReactNode }) {
+    const { zoomLevel } = useStore()
+    return (
+        <main
+            className="flex-1 overflow-auto bg-slate-50/50 p-6 transition-all duration-200 ease-in-out"
+            style={{
+                // Using transform for zoom to avoid layout shifts if 'zoom' property is not desired, 
+                // but 'zoom' is often requested for this effect. Browser support for 'zoom' is good for this use case.
+                // However, user asked for "zoom" affecting screen. content.
+                // using standard CSS transform scale might be safer for modern apps but 'zoom' CSS property is what users usually mean by "zoom".
+                zoom: zoomLevel
+            }}
+        >
+            {children}
+        </main>
+    )
+}
 
 export default function MainLayout({
     children,
@@ -19,9 +38,9 @@ export default function MainLayout({
                         <Sidebar />
                         <div className="flex flex-1 flex-col min-w-0">
                             <Navbar />
-                            <main className="flex-1 overflow-auto bg-slate-50/50 p-6">
+                            <MainContentWrapper>
                                 {children}
-                            </main>
+                            </MainContentWrapper>
                         </div>
                     </div>
                 </ChatProvider>

@@ -27,6 +27,13 @@ type GroupMember = {
     profiles: Profile
 }
 
+type PendingInvite = {
+    group_id: string
+    status: string
+    created_at: string
+    access_groups: AccessGroup
+}
+
 export function GroupsManager({ autoOpenCreate = false }: { autoOpenCreate?: boolean }) {
     const { groups, isLoading: isGroupsLoading, createGroup: createGroupContext, updateGroup: updateGroupContext, deleteGroup: deleteGroupContext } = useGroup()
     // const [isLoading, setIsLoading] = useState(true) // Use context loading for groups
@@ -65,6 +72,60 @@ export function GroupsManager({ autoOpenCreate = false }: { autoOpenCreate?: boo
     }
 
     const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
+    const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
+
+    useEffect(() => {
+        if (currentUser) {
+            fetchPendingInvites()
+        }
+    }, [currentUser])
+
+    const fetchPendingInvites = async () => {
+        const { data, error } = await supabase
+            .from('access_group_members')
+            .select(`
+                group_id,
+                status,
+                created_at,
+                access_groups (*)
+            `)
+            .eq('user_id', currentUser)
+            .eq('status', 'pending')
+
+        if (data) {
+            setPendingInvites(data as any)
+        }
+    }
+
+    const handleAcceptInvite = async (groupId: string) => {
+        const { error } = await supabase
+            .from('access_group_members')
+            .update({ status: 'active' })
+            .match({ group_id: groupId, user_id: currentUser })
+
+        if (!error) {
+            toast.success("Convite aceito!")
+            setPendingInvites(prev => prev.filter(i => i.group_id !== groupId))
+            // Refresh groups context to show the new group
+            window.location.reload() // Simple way to ensure Context + RLS updates or use valid refresh method from context if available
+        } else {
+            toast.error("Erro ao aceitar convite.")
+        }
+    }
+
+    const handleDeclineInvite = async (groupId: string) => {
+        const { error } = await supabase
+            .from('access_group_members')
+            .delete()
+            .match({ group_id: groupId, user_id: currentUser })
+
+        if (!error) {
+            toast.success("Convite recusado.")
+            setPendingInvites(prev => prev.filter(i => i.group_id !== groupId))
+        } else {
+            toast.error("Erro ao recusar convite.")
+        }
+    }
 
     const handleDeleteGroup = (id: string) => {
         setGroupToDelete(id)
@@ -85,6 +146,33 @@ export function GroupsManager({ autoOpenCreate = false }: { autoOpenCreate?: boo
 
                 {/* Groups Section */}
                 <div className="space-y-4">
+                    {/* Pending Invites Section */}
+                    {pendingInvites.length > 0 && (
+                        <div className="space-y-2 mb-6 p-4 bg-blue-50/50 border border-blue-100 rounded-lg">
+                            <h3 className="font-semibold text-sm text-blue-800 flex items-center gap-2">
+                                <Users className="h-4 w-4" /> Convites Pendentes
+                            </h3>
+                            <div className="space-y-2">
+                                {pendingInvites.map(invite => (
+                                    <div key={invite.group_id} className="bg-white p-3 rounded-md border shadow-sm flex flex-col gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-2 w-2 rounded-full bg-blue-500" />
+                                            <span className="font-medium text-sm">{invite.access_groups.name}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button size="sm" className="h-7 text-xs flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => handleAcceptInvite(invite.group_id)}>
+                                                Aceitar
+                                            </Button>
+                                            <Button size="sm" variant="outline" className="h-7 text-xs flex-1" onClick={() => handleDeclineInvite(invite.group_id)}>
+                                                Recusar
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between">
                         <h3 className="font-medium text-lg">Seus Grupos</h3>
                         <Dialog open={isCreating} onOpenChange={setIsCreating}>

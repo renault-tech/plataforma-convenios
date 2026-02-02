@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { useAdmin } from "@/hooks/useAdmin"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,6 +22,7 @@ export function UserMenu() {
     const [loading, setLoading] = useState(true)
     const router = useRouter()
     const supabase = createClient()
+    const { isAdmin } = useAdmin()
 
     useEffect(() => {
         let isMounted = true;
@@ -105,7 +107,7 @@ export function UserMenu() {
                             <SettingsIcon className="mr-2 h-4 w-4" />
                             <span>Configurações</span>
                         </DropdownMenuItem>
-                        {profile?.is_admin && (
+                        {isAdmin && (
                             <DropdownMenuItem onClick={() => router.push("/admin")}>
                                 <Shield className="mr-2 h-4 w-4" />
                                 <span>Administração</span>

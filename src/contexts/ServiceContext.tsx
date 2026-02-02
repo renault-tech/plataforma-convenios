@@ -73,12 +73,31 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 
-            // 0. Fetch Last Views
-            const { data: viewsData } = await supabase
-                .from('user_service_views')
-                .select('service_id, last_viewed_at')
-                .eq('user_id', user.id)
+            // Parallel Fetching
+            const [viewsResult, myServicesResult, sharedServicesResult] = await Promise.all([
+                // 0. Fetch Last Views
+                supabase
+                    .from('user_service_views')
+                    .select('service_id, last_viewed_at')
+                    .eq('user_id', user.id),
 
+                // 1. Fetch My Services
+                supabase
+                    .from("services")
+                    .select("*, service_permissions(grantee_type, origin_group_id, grantee_id)")
+                    .eq("owner_id", user.id)
+                    .order("name"),
+
+                // 2. Fetch Shared Services
+                supabase
+                    .from("services")
+                    .select("*, service_permissions!inner(id, grantee_type, origin_group_id, status)")
+                    .eq("service_permissions.status", "active")
+                    .neq("owner_id", user.id)
+            ])
+
+            // Process Views
+            const { data: viewsData } = viewsResult
             const viewsMap: Record<string, string> = {}
             if (viewsData) {
                 viewsData.forEach((v: any) => {
@@ -87,13 +106,8 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
             }
             setLastViews(viewsMap)
 
-            // 1. Fetch My Services
-            const { data: myData, error: myError } = await supabase
-                .from("services")
-                .select("*, service_permissions(grantee_type, origin_group_id, grantee_id)")
-                .eq("owner_id", user.id)
-                .order("name")
-
+            // Process My Services
+            const { data: myData, error: myError } = myServicesResult
             if (myError) console.error("Error fetching my services", JSON.stringify(myError, null, 2))
 
             const processedMyData = (myData || []).map((s: any) => {
@@ -114,13 +128,8 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
                 }
             })
 
-            // 2. Fetch Shared Services
-            const { data: sharedData, error: sharedError } = await supabase
-                .from("services")
-                .select("*, service_permissions!inner(id, grantee_type, origin_group_id, status)")
-                .eq("service_permissions.status", "active")
-                .neq("owner_id", user.id)
-
+            // Process Shared Services
+            const { data: sharedData, error: sharedError } = sharedServicesResult
             if (sharedError) console.error("Error fetching shared services", JSON.stringify(sharedError, null, 2))
 
             const safeSharedData = (sharedData || []).map((s: any) => {
