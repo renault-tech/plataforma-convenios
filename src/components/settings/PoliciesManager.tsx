@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useService } from "@/contexts/ServiceContext"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ColumnConfig } from "@/components/services/ItemsTable"
 
 type AccessPolicy = {
     id: string
@@ -215,7 +216,7 @@ export function PoliciesManager({ serviceId }: PoliciesManagerProps) {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {activeColumns.map(col => (
-                                                        <SelectItem key={col.id} value={col.key || col.id}>
+                                                        <SelectItem key={col.id} value={col.id}>
                                                             {col.label}
                                                         </SelectItem>
                                                     ))}
@@ -242,7 +243,7 @@ export function PoliciesManager({ serviceId }: PoliciesManagerProps) {
                                         </div>
                                         <div className="text-xs text-muted-foreground space-y-1">
                                             <p>Use <strong>{"{{user_name}}"}</strong> para pegar o nome do usuário logado.</p>
-                                            <p>Ex: Se a coluna for "Responsavel", o valor <strong>{"{{user_name}}"}</strong> mostrará apenas as linhas onde o responsável é o usuário atual.</p>
+                                            <p>Ex: Se a coluna for &quot;Responsável&quot;, o valor <strong>{"{{user_name}}"}</strong> mostrará apenas as linhas onde o responsável é o usuário atual.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -265,7 +266,7 @@ export function PoliciesManager({ serviceId }: PoliciesManagerProps) {
                                 </Button>
                             </div>
                             <CardDescription className="font-mono text-xs bg-slate-100 p-2 rounded mt-2">
-                                {policy.filter_logic.column} {policy.filter_logic.operator === 'eq' ? '==' : policy.filter_logic.operator} "{policy.filter_logic.value}"
+                                {policy.filter_logic.column} {policy.filter_logic.operator === 'eq' ? '==' : policy.filter_logic.operator} &quot;{policy.filter_logic.value}&quot;
                             </CardDescription>
                         </CardHeader>
                     </Card>

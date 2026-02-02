@@ -6,7 +6,6 @@ import {
     flexRender,
     getCoreRowModel,
     useReactTable,
-    CellContext,
     SortingState,
     getSortedRowModel,
     getExpandedRowModel,
