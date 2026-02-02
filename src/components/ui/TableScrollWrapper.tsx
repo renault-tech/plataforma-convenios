@@ -62,20 +62,12 @@ export function TableScrollWrapper({ children, className, ...props }: TableScrol
 
     return (
         <div className={cn("relative group", className)} {...props}>
-            {/* Inline style block to force hide scrollbars everywhere */}
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                .scrollbar-hide-force::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; -webkit-appearance: none !important; background: transparent !important; }
-                .scrollbar-hide-force { -ms-overflow-style: none !important; scrollbar-width: none !important; overflow-x: auto !important; }
-            `}} />
-
             <div
                 ref={scrollRef}
-                className="overflow-x-auto w-full scrollbar-hide-force"
+                className="overflow-x-auto w-full scrollbar-hide"
                 style={{
                     scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
-                    overflowX: 'auto'
+                    msOverflowStyle: 'none'
                 }}
             >
                 {children}
