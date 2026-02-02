@@ -27,10 +27,17 @@ export function TableScrollWrapper({ children, className, ...props }: TableScrol
         const element = scrollRef.current
         if (element) {
             checkScroll()
-            element.addEventListener("scroll", checkScroll)
+            // Use ResizeObserver for more robust detection
+            const observer = new ResizeObserver(() => {
+                checkScroll()
+            })
+            observer.observe(element)
+
+            // Also listen to window resize
             window.addEventListener("resize", checkScroll)
+
             return () => {
-                element.removeEventListener("scroll", checkScroll)
+                observer.disconnect()
                 window.removeEventListener("resize", checkScroll)
             }
         }
@@ -38,7 +45,9 @@ export function TableScrollWrapper({ children, className, ...props }: TableScrol
 
     // Re-check when children change (e.g. data loaded)
     React.useEffect(() => {
-        checkScroll()
+        // Small timeout to ensure rendering is complete
+        const timer = setTimeout(checkScroll, 100)
+        return () => clearTimeout(timer)
     }, [children, checkScroll])
 
     const scroll = (direction: "left" | "right") => {
@@ -53,17 +62,23 @@ export function TableScrollWrapper({ children, className, ...props }: TableScrol
 
     return (
         <div className={cn("relative group", className)} {...props}>
+            {/* Force hide scrollbars with embedded style */}
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                .scrollbar-hide-force::-webkit-scrollbar { display: none !important; }
+                .scrollbar-hide-force { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+            `}} />
+
             <div
                 ref={scrollRef}
-                className="overflow-x-auto w-full"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                className="overflow-x-auto w-full scrollbar-hide-force"
             >
                 {children}
             </div>
 
             {/* Scroll Controls - Positioned at Top Left (Header area) */}
             <div className={cn(
-                "absolute top-3 left-2 flex gap-1 transition-opacity duration-200 z-20",
+                "absolute top-3 left-2 flex gap-1 transition-opacity duration-200 z-50",
                 (canScrollLeft || canScrollRight) ? "opacity-100" : "opacity-0 pointer-events-none"
             )}>
                 <Button
