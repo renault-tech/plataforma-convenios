@@ -124,10 +124,10 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, last
 
                 return (
                     <div className="relative pl-12 flex items-center h-full min-h-[20px]">
-                        {/* Blue Bar for New/Updated Items */}
-                        {isNew && (
+                        {/* Blue Bar REMOVED per user request */}
+                        {/* {isNew && (
                             <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 z-10" title="Novo/Atualizado" />
-                        )}
+                        )} */}
 
                         <div className="absolute left-0 top-0 bottom-0 flex items-center justify-end gap-0.5 w-[44px] pr-1">
                             {/* Indicators (Paperclip/Text) FIRST */}
@@ -287,7 +287,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, last
                                             data-state={row.getIsSelected() && "selected"}
                                             className={cn(
                                                 "group transition-colors cursor-pointer hover:bg-slate-50",
-                                                isNew ? "bg-blue-50/50 hover:bg-blue-100/50" : ""
+                                                isNew ? "bg-blue-50 hover:bg-blue-100" : ""
                                             )}
                                             style={{
                                                 backgroundColor: isNew

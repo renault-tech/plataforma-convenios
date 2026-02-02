@@ -45,8 +45,9 @@ export function Navbar() {
             </div>
             <div className="flex items-center gap-2">
                 <FeedbackButton>
-                    <Button variant="ghost" size="icon" title="Enviar Feedback">
-                        <MessageSquarePlus className="h-5 w-5 text-muted-foreground" />
+                    <Button variant="ghost" className="gap-2 text-slate-600">
+                        <MessageSquarePlus className="h-5 w-5" />
+                        <span>Feedback</span>
                     </Button>
                 </FeedbackButton>
                 <NotificationsPopover />

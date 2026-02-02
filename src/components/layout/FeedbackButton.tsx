@@ -42,11 +42,10 @@ export function FeedbackButton({ children }: { children?: React.ReactNode }) {
             <DialogTrigger asChild>
                 {children || (
                     <Button
-                        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 z-50 bg-primary hover:bg-primary/90"
-                        size="icon"
+                        className="fixed bottom-6 right-6 h-12 px-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 z-50 bg-primary hover:bg-primary/90 flex items-center gap-2"
                     >
-                        <MessageSquarePlus className="h-6 w-6 text-white" />
-                        <span className="sr-only">Enviar Feedback</span>
+                        <MessageSquarePlus className="h-5 w-5 text-white" />
+                        <span className="text-white font-medium">Feedback</span>
                     </Button>
                 )}
             </DialogTrigger>

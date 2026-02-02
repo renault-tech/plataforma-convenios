@@ -55,7 +55,8 @@ export function TableScrollWrapper({ children, className, ...props }: TableScrol
         <div className={cn("relative group", className)} {...props}>
             <div
                 ref={scrollRef}
-                className="overflow-x-auto scrollbar-hide w-full"
+                className="overflow-x-auto w-full"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
                 {children}
             </div>
