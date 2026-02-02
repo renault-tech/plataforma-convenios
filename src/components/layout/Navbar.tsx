@@ -9,12 +9,19 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { NotificationsPopover } from "./NotificationsPopover"
 import dynamic from "next/dynamic"
+import { useTutorial } from "@/hooks/useTutorial"
 
 const FeedbackButton = dynamic(() => import('./FeedbackButton').then(mod => mod.FeedbackButton), { ssr: false })
 
 export function Navbar() {
     const [count, setCount] = useState(0)
     const supabase = createClient()
+    const { startTutorial } = useTutorial()
+
+    useEffect(() => {
+        // Start tour check
+        startTutorial()
+    }, [])
 
     useEffect(() => {
         const fetchCount = async () => {
@@ -63,14 +70,20 @@ export function Navbar() {
             </div>
 
             <div className="flex items-center gap-2">
-                <FeedbackButton>
-                    <Button variant="ghost" className="gap-2 text-slate-600">
-                        <MessageSquarePlus className="h-5 w-5" />
-                        <span>Feedback</span>
-                    </Button>
-                </FeedbackButton>
-                <NotificationsPopover />
-                <UserMenu />
+                <div id="feedback-btn">
+                    <FeedbackButton>
+                        <Button variant="ghost" className="gap-2 text-slate-600">
+                            <MessageSquarePlus className="h-5 w-5" />
+                            <span>Feedback</span>
+                        </Button>
+                    </FeedbackButton>
+                </div>
+                <div id="notifications-trigger">
+                    <NotificationsPopover />
+                </div>
+                <div id="user-menu-trigger">
+                    <UserMenu />
+                </div>
             </div>
         </header>
     )

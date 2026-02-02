@@ -3,11 +3,12 @@
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
-import { Plus, Trash2, Save, X, Settings as SettingsIcon, AlertCircle } from "lucide-react"
+import { Plus, Trash2, Save, X, Settings as SettingsIcon, AlertCircle, HelpCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useTutorial } from "@/hooks/useTutorial"
 import {
     Select,
     SelectContent,
@@ -55,6 +56,7 @@ function ConfiguracoesContent() {
     const [activeTab, setActiveTab] = useState<string>("new")
     const [isLoading, setIsLoading] = useState(false)
     const [showAccessControl, setShowAccessControl] = useState(false)
+    const { startTutorial } = useTutorial()
 
     const searchParams = useSearchParams()
 
@@ -72,6 +74,18 @@ function ConfiguracoesContent() {
             if (services.length > 0) setActiveTab(services[0].id);
         }
     }, [services.length, searchParams])
+
+    // Cleanup activeTab if service is deleted
+    useEffect(() => {
+        if (activeTab !== "new" && services.length > 0) {
+            const exists = services.some(s => s.id === activeTab)
+            if (!exists) {
+                setActiveTab(services[0]?.id || "new")
+            }
+        } else if (activeTab !== "new" && services.length === 0 && !isLoading) {
+            setActiveTab("new")
+        }
+    }, [services, activeTab, isLoading])
 
     const handleTabChange = (value: string) => {
         setActiveTab(value)
@@ -112,10 +126,19 @@ function ConfiguracoesContent() {
                     {/* Header & Tabs */}
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <div className="flex flex-wrap items-center gap-4">
-                            <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
+                                <button
+                                    onClick={() => startTutorial(true, 'settings')}
+                                    className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-full transition-colors mt-1"
+                                    title="Tutorial de Configurações"
+                                >
+                                    <HelpCircle className="h-5 w-5" />
+                                </button>
+                            </div>
 
                             {/* Service Tabs (Inline with Title) */}
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2" id="settings-tabs">
                                 {services.map((service) => {
                                     const isActive = activeTab === service.id
                                     const textColor = isActive ? getContrastYIQ(service.primary_color) : undefined
@@ -158,6 +181,7 @@ function ConfiguracoesContent() {
                             variant="outline"
                             className="gap-2"
                             onClick={() => setShowAccessControl(true)}
+                            id="settings-access-control"
                         >
                             <Lock className="h-4 w-4" />
                             Controle de Acesso
@@ -301,6 +325,7 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
     const [newColName, setNewColName] = useState("")
     const [newColType, setNewColType] = useState<ColumnType>("text")
     const [editingIndex, setEditingIndex] = useState<number | null>(null) // Track which item is being edited
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
     useEffect(() => {
         if (service) {
@@ -407,7 +432,7 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
         }
     }
 
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
 
     const handleDeleteService = () => {
         setShowDeleteConfirm(true)
@@ -424,7 +449,7 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
             {/* Main Split Layout */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left: Add/Edit Column Form */}
-                <Card className={editingIndex !== null ? "border-blue-500 ring-1 ring-blue-500" : ""}>
+                <Card className={editingIndex !== null ? "border-blue-500 ring-1 ring-blue-500" : ""} id="settings-column-form">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="space-y-1">
                             <CardTitle>{editingIndex !== null ? "Editar Coluna" : "Adicionar Nova Coluna"}</CardTitle>
@@ -436,6 +461,7 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
                         {/* 🎨 COLOR PICKER BUTTON (Native) */}
                         {service && (
                             <div className="relative h-8 w-8 overflow-hidden rounded-full border-2 shadow-sm cursor-pointer transition-transform hover:scale-105"
+                                id="settings-color-trigger"
                                 style={{
                                     backgroundColor: localColor,
                                     borderColor: getContrastYIQ(localColor) === 'black' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'
@@ -511,7 +537,7 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
                 </Card>
 
                 {/* Right: Active Columns List */}
-                <Card>
+                <Card id="settings-active-columns">
                     <CardHeader className="pb-3 border-b">
                         <div className="flex justify-between items-center">
                             <div>

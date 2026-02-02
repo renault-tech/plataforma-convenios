@@ -54,7 +54,7 @@ export function Sidebar() {
 
             {/* Content */}
             <div className="flex-1 overflow-auto py-4">
-                <nav className="space-y-1 px-2">
+                <nav id="sidebar-nav" className="space-y-1 px-2">
                     <Link href="/">
                         <Button
                             variant="ghost"
@@ -76,14 +76,11 @@ export function Sidebar() {
                                 "w-full justify-start pl-2 text-sm",
                                 pathname === "/dashboard" ? "bg-slate-800 text-white" : "hover:text-white hover:bg-slate-800"
                             )}
+                            style={activeService ? {
+                                borderRight: `12px solid ${activeService.primary_color || '#3b82f6'}`,
+                            } : {}}
                         >
                             <FileText className="mr-2 h-4 w-4" />
-                            {activeService && (
-                                <div
-                                    className="w-2 h-2 rounded-full mr-2 animate-in fade-in"
-                                    style={{ backgroundColor: activeService.primary_color || '#3b82f6' }}
-                                />
-                            )}
                             Dashboard
                         </Button>
                     </Link>
@@ -150,7 +147,7 @@ export function Sidebar() {
                                                     : "text-slate-400 hover:text-white hover:bg-slate-800"
                                             )}
                                             style={isActive ? {
-                                                borderLeft: `8px solid ${service.primary_color || '#3b82f6'}`,
+                                                borderLeft: `12px solid ${service.primary_color || '#3b82f6'}`,
                                                 backgroundColor: `${service.primary_color || '#3b82f6'}15`
                                             } : {}}
                                         >
@@ -182,7 +179,7 @@ export function Sidebar() {
 
                 {/* SHARED SERVICES */}
                 {(sortedSharedServices.length > 0) && (
-                    <Collapsible open={isOpenShared} onOpenChange={setIsOpenShared} className="space-y-1 mt-4">
+                    <Collapsible id="sidebar-shared-services" open={isOpenShared} onOpenChange={setIsOpenShared} className="space-y-1 mt-4">
                         <div className="flex items-center justify-between px-2 py-1">
                             <CollapsibleTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-6 w-full justify-start p-0 text-xs font-semibold text-slate-500 hover:text-slate-300 hover:bg-transparent uppercase" suppressHydrationWarning>
@@ -216,24 +213,22 @@ export function Sidebar() {
                                                 "w-full justify-start pl-6 text-sm text-slate-400 hover:text-white hover:bg-slate-800 relative",
                                             )}
                                             style={isActive ? {
-                                                borderLeft: `8px solid ${shared.primary_color || '#3b82f6'}`,
+                                                borderLeft: `12px solid ${shared.primary_color || '#3b82f6'}`,
                                                 backgroundColor: `${shared.primary_color || '#3b82f6'}15`,
                                                 color: 'white'
                                             } : {}}
                                         >
-                                            <div className="relative mr-2">
+                                            <div className="relative mr-2 flex items-center">
                                                 {isGroup ? (
                                                     <Users className="h-3.5 w-3.5 text-orange-400" />
                                                 ) : (
                                                     <User className="h-3.5 w-3.5 text-green-400" />
                                                 )}
-
-                                                {/* Unified Red Dot (Chat OR Update) */}
-                                                {showRedDot && (
-                                                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-slate-900 animate-in zoom-in" />
-                                                )}
                                             </div>
                                             {shared.name}
+                                            {showRedDot && (
+                                                <span className="ml-2 h-2 w-2 rounded-full bg-red-500 animate-in zoom-in" />
+                                            )}
                                         </Button>
                                     </Link>
                                 )

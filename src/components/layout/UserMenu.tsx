@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { LogOut, User, Settings as SettingsIcon, Shield } from "lucide-react"
+import { LogOut, User, Settings as SettingsIcon, Shield, MessageSquare } from "lucide-react"
+import { useTutorial } from "@/hooks/useTutorial"
 
 export function UserMenu() {
     const [user, setUser] = useState<any>(null)
@@ -23,6 +24,7 @@ export function UserMenu() {
     const router = useRouter()
     const supabase = createClient()
     const { isAdmin } = useAdmin()
+    const { startTutorial } = useTutorial()
 
     useEffect(() => {
         let isMounted = true;
@@ -113,6 +115,10 @@ export function UserMenu() {
                                 <span>Administração</span>
                             </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem onClick={() => startTutorial(true)}>
+                            <MessageSquare className="mr-2 h-4 w-4" />
+                            <span>Tutorial</span>
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 cursor-pointer">
                             <LogOut className="mr-2 h-4 w-4" />

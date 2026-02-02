@@ -295,7 +295,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
                                             data-state={row.getIsSelected() && "selected"}
                                             className={cn(
                                                 "group transition-colors cursor-pointer hover:bg-slate-50",
-                                                isNew ? "bg-blue-50 hover:bg-blue-100" : ""
+                                                isNew ? "bg-blue-100 hover:bg-blue-200" : ""
                                             )}
                                             style={{
                                                 backgroundColor: isNew

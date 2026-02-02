@@ -15,7 +15,8 @@ import { ServiceChatSheet } from "@/components/chat/ServiceChatSheet"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { ServiceIcon } from "@/components/services/ServiceIcon"
 import { createItemAction, updateItemAction, deleteItemAction } from "@/app/actions/items"
-import { markServiceAsViewed } from "@/app/actions/service-views"
+import { HelpCircle } from "lucide-react"
+import { useTutorial } from "@/hooks/useTutorial"
 
 interface ServiceViewProps {
     initialService: any
@@ -23,7 +24,8 @@ interface ServiceViewProps {
 }
 
 export function ServiceView({ initialService, initialItems }: ServiceViewProps) {
-    const { activeService: contextActiveService, setActiveService, lastViews, updateService } = useService()
+    const { activeService: contextActiveService, setActiveService, lastViews, updateService, markServiceViewed } = useService()
+    const { startTutorial } = useTutorial()
 
     // Use initialService for rendering immediately to avoid wait time and runtime errors
     const activeService = initialService || contextActiveService
@@ -50,12 +52,12 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
     // We use a ref to initialize it only once per mount
     const [initialLastViewed] = useState(() => activeService ? lastViews[activeService.id] : undefined)
 
-    // Mark as viewed IMMEDIATELY on mount/entry
+    // Mark as viewed IMMEDIATELY on mount/entry/change
     useEffect(() => {
         if (activeService?.id) {
-            markServiceAsViewed(activeService.id)
+            markServiceViewed(activeService.id)
         }
-    }, [activeService?.id])
+    }, [activeService?.id, markServiceViewed])
 
     // Sync items from props (important for Server Actions revalidation)
     useEffect(() => {
@@ -224,7 +226,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-lg border shadow-sm">
                 <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" id="service-header-title">
                         <ServiceIcon name={activeService.icon} className="h-8 w-8 text-blue-500" />
                         {isEditingTitle ? (
                             <div className="flex items-center gap-2">
@@ -269,25 +271,41 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                     {/* Render actions only on client to avoid Radix UI ID mismatches during hydration */}
                     {isMounted && (
                         <>
-                            <ServiceInfoDialog service={activeService} />
-                            <ShareServiceDialog service={activeService} />
-                            <ItemForm
-                                columns={columnsConfig}
-                                onSave={handleCreateItem}
-                                serviceName={activeService.name}
-                                trigger={
-                                    <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2" style={{ backgroundColor: activeService.primary_color }}>
-                                        <Pencil className="mr-2 h-4 w-4" />
-                                        Adicionar Item
-                                    </button>
-                                }
-                            />
+                            <button
+                                onClick={() => startTutorial(true, 'service')}
+                                className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-full transition-colors"
+                                title="Tutorial da Planilha"
+                            >
+                                <HelpCircle className="h-5 w-5" />
+                            </button>
+
+                            <div id="service-info-btn">
+                                <ServiceInfoDialog service={activeService} />
+                            </div>
+
+                            <div id="service-share-btn">
+                                <ShareServiceDialog service={activeService} />
+                            </div>
+
+                            <div id="service-add-item-btn">
+                                <ItemForm
+                                    columns={columnsConfig}
+                                    onSave={handleCreateItem}
+                                    serviceName={activeService.name}
+                                    trigger={
+                                        <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2" style={{ backgroundColor: activeService.primary_color }}>
+                                            <Pencil className="mr-2 h-4 w-4" />
+                                            Adicionar Item
+                                        </button>
+                                    }
+                                />
+                            </div>
                         </>
                     )}
                 </div>
             </div>
 
-            <div className="rounded-md border bg-white">
+            <div className="rounded-md border bg-white" id="items-table-container">
                 <ItemsTable
                     columns={columnsConfig}
                     data={items || []}
@@ -321,7 +339,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
             />
 
             {/* Floating Chat Trigger */}
-            <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-none">
+            <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-none" id="service-chat-trigger-container">
                 <div className="pointer-events-auto">
                     <ServiceChatTrigger
                         serviceId={activeService.id}

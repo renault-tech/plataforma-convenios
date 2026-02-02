@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { markServiceAsViewed } from "@/app/actions/service-views"
 
 export type Service = {
     id: string
@@ -37,6 +38,7 @@ type ServiceContextType = {
     deleteService: (id: string) => Promise<void>
     userId: string | null
     lastViews: Record<string, string>
+    markServiceViewed: (serviceId: string) => void
 }
 
 const ServiceContext = createContext<ServiceContextType | undefined>(undefined)
@@ -47,7 +49,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true)
     const [userId, setUserId] = useState<string | null>(null)
     const [lastViews, setLastViews] = useState<Record<string, string>>({})
-    const supabase = createClient()
+    const [supabase] = useState(() => createClient())
 
     // Derived state
     const myServices = services.filter(s => s.owner_id === userId || !s.owner_id)
@@ -274,6 +276,23 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
+    const markServiceViewed = useCallback(async (serviceId: string) => {
+        // 1. Optimistic Update (Instant)
+        const now = new Date().toISOString()
+        setLastViews(prev => ({
+            ...prev,
+            [serviceId]: now
+        }))
+
+        // 2. Background Server Action
+        try {
+            await markServiceAsViewed(serviceId)
+        } catch (error) {
+            console.error("Failed to mark service as viewed on server", error)
+            // Optional: Revert on error? Usually not critical for "last view"
+        }
+    }, [])
+
     useEffect(() => {
         if (activeService) {
             const root = document.documentElement
@@ -297,7 +316,8 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
             updateService,
             deleteService,
             userId,
-            lastViews
+            lastViews,
+            markServiceViewed
         }}>
             {children}
         </ServiceContext.Provider>
