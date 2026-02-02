@@ -1,7 +1,8 @@
 "use client"
 
-import { Bell } from "lucide-react"
+import { Bell, MessageSquarePlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { FeedbackButton } from "./FeedbackButton"
 import { UserMenu } from "./UserMenu"
 import { toast } from "sonner"
 import { useState, useEffect } from "react"
@@ -43,6 +44,11 @@ export function Navbar() {
                 <h1 className="text-lg font-semibold">Gestão de Parcerias</h1>
             </div>
             <div className="flex items-center gap-2">
+                <FeedbackButton>
+                    <Button variant="ghost" size="icon" title="Enviar Feedback">
+                        <MessageSquarePlus className="h-5 w-5 text-muted-foreground" />
+                    </Button>
+                </FeedbackButton>
                 <NotificationsPopover />
                 <UserMenu />
             </div>

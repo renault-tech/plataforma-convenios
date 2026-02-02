@@ -2,7 +2,6 @@
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Navbar } from "@/components/layout/Navbar";
-import { FeedbackButton } from "@/components/layout/FeedbackButton";
 import { ServiceProvider } from "@/contexts/ServiceContext";
 import { GroupProvider } from "@/contexts/GroupContext";
 import { ChatProvider } from "@/contexts/ChatContext";
@@ -24,7 +23,6 @@ export default function MainLayout({
                                 {children}
                             </main>
                         </div>
-                        <FeedbackButton />
                     </div>
                 </ChatProvider>
             </GroupProvider>

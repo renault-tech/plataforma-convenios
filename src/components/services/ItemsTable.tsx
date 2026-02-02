@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils"
 import { Pencil, Trash2, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Paperclip, FileText, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RowDetails } from "@/components/ui/RowDetails"
+import { TableScrollWrapper } from "@/components/ui/TableScrollWrapper"
 
 export type ColumnType = 'text' | 'number' | 'date' | 'currency' | 'status' | 'boolean'
 
@@ -153,7 +154,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, last
                                 </button>
                             )}
                         </div>
-                        <span className="truncate max-w-[200px] font-medium text-slate-700 block text-left">
+                        <span className="font-medium text-slate-700 block text-left break-words min-w-[150px]">
                             {content as React.ReactNode}
                         </span>
                     </div>
@@ -249,7 +250,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, last
 
     return (
         <div className="rounded-md border bg-white shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+            <TableScrollWrapper>
                 <Table className="min-w-full">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -258,7 +259,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, last
                                     return (
                                         <TableHead
                                             key={header.id}
-                                            className="h-12 px-4 text-left align-middle font-bold text-slate-800 uppercase tracking-wider text-sm border-b-2 border-slate-100 whitespace-nowrap"
+                                            className="h-12 px-4 text-left align-middle font-bold text-slate-800 uppercase tracking-wider text-sm border-b-2 border-slate-100 min-w-[150px]"
                                             style={{ color: primaryColor ? `${primaryColor}` : undefined }}
                                         >
                                             {header.isPlaceholder
@@ -299,7 +300,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, last
 
                                             {/* Cells */}
                                             {row.getVisibleCells().map((cell) => (
-                                                <TableCell key={cell.id} className="whitespace-nowrap">
+                                                <TableCell key={cell.id} className="align-top py-3">
                                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                                 </TableCell>
                                             ))}
@@ -326,7 +327,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, primaryColor, last
                         )}
                     </TableBody>
                 </Table>
-            </div>
+            </TableScrollWrapper>
         </div>
     )
 }

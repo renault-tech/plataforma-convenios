@@ -23,6 +23,7 @@ import {
 import { useStore, Agreement, ColumnDefinition } from "@/lib/store"
 import { cn } from "@/lib/utils"
 import { RowDetails } from "@/components/ui/RowDetails"
+import { TableScrollWrapper } from "@/components/ui/TableScrollWrapper"
 
 export function AgreementTable() {
     const { columns, agreements } = useStore()
@@ -118,14 +119,14 @@ export function AgreementTable() {
 
     return (
         <div className="rounded-md border bg-white overflow-hidden">
-            <div className="overflow-x-auto">
+            <TableScrollWrapper>
                 <Table className="min-w-full">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => {
                                     return (
-                                        <TableHead key={header.id} className="whitespace-nowrap">
+                                        <TableHead key={header.id} className="min-w-[150px]">
                                             {header.isPlaceholder
                                                 ? null
                                                 : flexRender(
@@ -149,7 +150,7 @@ export function AgreementTable() {
                                         onClick={() => row.toggleExpanded()}
                                     >
                                         {row.getVisibleCells().map((cell) => (
-                                            <TableCell key={cell.id} className="whitespace-nowrap">
+                                            <TableCell key={cell.id} className="align-top py-3 break-words">
                                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                             </TableCell>
                                         ))}
@@ -175,7 +176,7 @@ export function AgreementTable() {
                         )}
                     </TableBody>
                 </Table>
-            </div>
+            </TableScrollWrapper>
         </div>
     )
 }

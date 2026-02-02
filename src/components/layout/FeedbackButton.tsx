@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
-export function FeedbackButton() {
+export function FeedbackButton({ children }: { children?: React.ReactNode }) {
     const [open, setOpen] = useState(false)
     const [feedback, setFeedback] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -40,13 +40,15 @@ export function FeedbackButton() {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button
-                    className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 z-50 bg-primary hover:bg-primary/90"
-                    size="icon"
-                >
-                    <MessageSquarePlus className="h-6 w-6 text-white" />
-                    <span className="sr-only">Enviar Feedback</span>
-                </Button>
+                {children || (
+                    <Button
+                        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 z-50 bg-primary hover:bg-primary/90"
+                        size="icon"
+                    >
+                        <MessageSquarePlus className="h-6 w-6 text-white" />
+                        <span className="sr-only">Enviar Feedback</span>
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
