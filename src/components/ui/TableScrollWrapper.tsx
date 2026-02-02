@@ -62,44 +62,57 @@ export function TableScrollWrapper({ children, className, ...props }: TableScrol
 
     return (
         <div className={cn("relative group", className)} {...props}>
-            {/* Force hide scrollbars with embedded style */}
+            {/* Inline style block to force hide scrollbars everywhere */}
             <style dangerouslySetInnerHTML={{
                 __html: `
-                .scrollbar-hide-force::-webkit-scrollbar { display: none !important; }
-                .scrollbar-hide-force { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+                .scrollbar-hide-force::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; -webkit-appearance: none !important; background: transparent !important; }
+                .scrollbar-hide-force { -ms-overflow-style: none !important; scrollbar-width: none !important; overflow-x: auto !important; }
             `}} />
 
             <div
                 ref={scrollRef}
                 className="overflow-x-auto w-full scrollbar-hide-force"
+                style={{
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    overflowX: 'auto'
+                }}
             >
                 {children}
             </div>
 
             {/* Scroll Controls - Positioned at Top Left (Header area) */}
-            <div className={cn(
-                "absolute top-3 left-2 flex gap-1 transition-opacity duration-200 z-50",
-                (canScrollLeft || canScrollRight) ? "opacity-100" : "opacity-0 pointer-events-none"
-            )}>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 rounded-md bg-white hover:bg-slate-100 border border-slate-200 shadow-sm"
-                    onClick={() => scroll("left")}
-                    disabled={!canScrollLeft}
-                >
-                    <ChevronLeft className="h-3 w-3 text-slate-500" />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 rounded-md bg-white hover:bg-slate-100 border border-slate-200 shadow-sm"
-                    onClick={() => scroll("right")}
-                    disabled={!canScrollRight}
-                >
-                    <ChevronRight className="h-3 w-3 text-slate-500" />
-                </Button>
-            </div>
+            {/* Logic: If overflow exists (or force shown for debug), SHOW arrows. We ensure z-index 50 and white background for visibility. */}
+            {(canScrollLeft || canScrollRight) && (
+                <div className="absolute top-3 left-2 flex gap-1 z-50 animate-in fade-in duration-300">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            "h-6 w-6 rounded-md bg-white border border-slate-200 shadow-sm transition-opacity",
+                            !canScrollLeft ? "opacity-30 pointer-events-none" : "hover:bg-slate-100"
+                        )}
+                        onClick={() => scroll("left")}
+                        disabled={!canScrollLeft}
+                        aria-label="Rolar para esquerda"
+                    >
+                        <ChevronLeft className="h-3 w-3 text-slate-600" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                            "h-6 w-6 rounded-md bg-white border border-slate-200 shadow-sm transition-opacity",
+                            !canScrollRight ? "opacity-30 pointer-events-none" : "hover:bg-slate-100"
+                        )}
+                        onClick={() => scroll("right")}
+                        disabled={!canScrollRight}
+                        aria-label="Rolar para direita"
+                    >
+                        <ChevronRight className="h-3 w-3 text-slate-600" />
+                    </Button>
+                </div>
+            )}
         </div>
     )
 }
