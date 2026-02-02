@@ -17,17 +17,16 @@ import {
     CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { useService } from "@/contexts/ServiceContext"
-// This tool call is a placeholder to pause and check for components.
-// Actually I will check for components/ui/switch and label first.
 import { useGroup } from "@/contexts/GroupContext"
 import { Skeleton } from "@/components/ui/skeleton"
 import { createClient } from "@/lib/supabase/client"
 
 export function Sidebar() {
     const pathname = usePathname()
-    const { services, myServices, sharedServices, isLoading: servicesLoading, activeService } = useService()
+    // Destructure lastViews from Context
+    const { services, myServices, sharedServices, isLoading: servicesLoading, activeService, lastViews } = useService()
     const { groups, isLoading: groupsLoading } = useGroup()
-    const { activeConversation, closeChat } = useChat()
+    const { activeConversation, closeChat, conversations } = useChat()
 
     // Collapsible states
     const [isOpenServices, setIsOpenServices] = useState(true)
@@ -233,13 +232,24 @@ export function Sidebar() {
                                 const isActive = activeService?.id === shared.id
                                 const isGroup = shared.shared_via?.type === 'group'
 
+                                // 1. Chat Unread Logic (Red Dot)
+                                const serviceChat = conversations.find(c => c.type === 'service' && c.context_id === shared.id)
+                                const hasUnreadChat = (serviceChat?.unread_count || 0) > 0
+
+                                // 2. Update Logic (Unified Red Dot)
+                                const lastViewedAt = lastViews[shared.id]
+                                // If never viewed or updated after last view -> Has update
+                                const hasUpdate = !lastViewedAt || ((shared as any).updated_at && new Date((shared as any).updated_at).getTime() > new Date(lastViewedAt).getTime())
+
+                                const showRedDot = hasUnreadChat || hasUpdate
+
                                 return (
                                     <Link key={shared.id} href={`/servicos/${shared.slug}`}>
                                         <Button
                                             variant="ghost"
                                             size="sm"
                                             className={cn(
-                                                "w-full justify-start pl-6 text-sm text-slate-400 hover:text-white hover:bg-slate-800",
+                                                "w-full justify-start pl-6 text-sm text-slate-400 hover:text-white hover:bg-slate-800 relative",
                                             )}
                                             style={isActive ? {
                                                 borderLeft: `8px solid ${shared.primary_color || '#3b82f6'}`,
@@ -247,11 +257,18 @@ export function Sidebar() {
                                                 color: 'white'
                                             } : {}}
                                         >
-                                            {isGroup ? (
-                                                <Users className="mr-2 h-3.5 w-3.5 text-orange-400" />
-                                            ) : (
-                                                <User className="mr-2 h-3.5 w-3.5 text-green-400" />
-                                            )}
+                                            <div className="relative mr-2">
+                                                {isGroup ? (
+                                                    <Users className="h-3.5 w-3.5 text-orange-400" />
+                                                ) : (
+                                                    <User className="h-3.5 w-3.5 text-green-400" />
+                                                )}
+
+                                                {/* Unified Red Dot (Chat OR Update) */}
+                                                {showRedDot && (
+                                                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-slate-900 animate-in zoom-in" />
+                                                )}
+                                            </div>
                                             {shared.name}
                                         </Button>
                                     </Link>

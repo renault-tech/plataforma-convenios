@@ -17,7 +17,7 @@ interface ConversationBalloonProps {
 }
 
 export function ConversationBalloon({ isOpen, onClose, anchorRef }: ConversationBalloonProps) {
-    const { activeConversation, messages, sendMessage, settings, closeChat, isLoading, currentUser } = useChat()
+    const { activeConversation, messages, sendMessage, settings, closeChat, isLoading, currentUser, toggleStatus } = useChat()
     const [newMessage, setNewMessage] = useState("")
     const [showSettings, setShowSettings] = useState(false)
     const scrollRef = useRef<HTMLDivElement>(null)
@@ -78,6 +78,14 @@ export function ConversationBalloon({ isOpen, onClose, anchorRef }: Conversation
         if (success) setNewMessage("")
     }
 
+    // Auto-resize input
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.style.height = 'auto'
+            inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`
+        }
+    }, [newMessage])
+
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey && settings.enter_to_send) {
             e.preventDefault()
@@ -102,7 +110,7 @@ export function ConversationBalloon({ isOpen, onClose, anchorRef }: Conversation
         >
             {/* Header */}
             <div
-                className="h-14 px-4 flex items-center justify-between border-b shrink-0"
+                className="h-14 px-4 flex items-center justify-between border-b shrink-0 transition-colors"
                 style={{ backgroundColor: settings.theme_color }}
             >
                 <div className="flex items-center text-white">
@@ -118,10 +126,34 @@ export function ConversationBalloon({ isOpen, onClose, anchorRef }: Conversation
                     )}
 
                     <div className="flex flex-col">
-                        <span className="text-sm font-bold leading-none">
-                            {showSettings ? "Configurações" : (activeConversation.name || "Chat")}
+                        <span
+                            className="text-sm font-bold leading-none cursor-pointer hover:opacity-80"
+                            onClick={() => {
+                                // Minimize/Collapse logic
+                                // User asked to "recolher" by clicking on name
+                                onClose()
+                                closeChat()
+                            }}
+                            title="Recolher conversa"
+                        >
+                            {showSettings ? "Configurações" : (() => {
+                                const other = activeConversation.participants?.find(p => p.id !== currentUser?.id)
+                                return activeConversation.name || other?.full_name || "Chat"
+                            })()}
                         </span>
-                        {!showSettings && <span className="text-[10px] opacity-80">Online</span>}
+                        {!showSettings && (
+                            <span
+                                className="text-[10px] opacity-80 cursor-pointer hover:underline flex items-center gap-1"
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    toggleStatus && toggleStatus()
+                                }}
+                                title="Alterar status"
+                            >
+                                <span className={`h-1.5 w-1.5 rounded-full ${settings.status === 'online' ? 'bg-green-400' : 'bg-slate-400'}`} />
+                                {settings.status === 'online' ? 'Online' : 'Invisível'}
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -176,7 +208,7 @@ export function ConversationBalloon({ isOpen, onClose, anchorRef }: Conversation
                                 onChange={(e) => setNewMessage(e.target.value)}
                                 onKeyDown={handleKeyDown}
                                 placeholder="Digite sua mensagem..."
-                                className="w-full min-h-[40px] max-h-[120px] pr-10 resize-none rounded-xl border-slate-200 focus:border-blue-400 focus:ring-0 text-sm text-slate-900 py-2 px-3"
+                                className="w-full min-h-[40px] max-h-[120px] pr-10 resize-none rounded-xl border-slate-200 focus:border-blue-400 focus:ring-0 text-sm text-slate-900 py-2 px-3 overflow-hidden"
                                 rows={1}
                             />
                             <div className="absolute right-2 bottom-1.5 flex items-center gap-1">

@@ -9,18 +9,21 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export function GlobalChatList({ onSelect }: { onSelect?: (rect: DOMRect) => void }) {
-    const { conversations, activeConversation, openConversation, currentUser, deleteConversation } = useChat()
+    const { conversations, activeConversation, openConversation, closeChat, currentUser, deleteConversation } = useChat()
 
     // Filter for GLOBAL chats only (or DMs)
     // We assume 'global' type or null context_id implies a sidebar chat
     const filtered = conversations.filter(c => c.type === 'global' || !c.context_id)
 
     const handleSelect = (e: React.MouseEvent, conversationId: string) => {
-        // If we are just opening, we might not need the rect if we change the UX
-        // But let's keep it for the balloon positioning if we still use it
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-        openConversation(conversationId)
-        if (onSelect) onSelect(rect)
+        const isActive = activeConversation?.id === conversationId
+        if (isActive) {
+            closeChat()
+        } else {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+            openConversation(conversationId)
+            if (onSelect) onSelect(rect)
+        }
     }
 
     if (filtered.length === 0) {
@@ -39,6 +42,9 @@ export function GlobalChatList({ onSelect }: { onSelect?: (rect: DOMRect) => voi
                 const otherParticipant = convo.participants?.find(p => p.id !== currentUser?.id)
                 const name = convo.name || otherParticipant?.full_name || "Chat"
 
+                // Fix: Ensure strict boolean to avoid rendering '0'
+                const hasUnread = (convo.unread_count || 0) > 0
+
                 return (
                     <Button
                         key={convo.id}
@@ -54,8 +60,11 @@ export function GlobalChatList({ onSelect }: { onSelect?: (rect: DOMRect) => voi
                                     {(name[0] || 'U').toUpperCase()}
                                 </AvatarFallback>
                             </Avatar>
+                            {hasUnread && (
+                                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 border border-slate-900" />
+                            )}
                         </div>
-                        <span className="truncate flex-1 text-left">{name}</span>
+                        <span className={`truncate flex-1 text-left ${hasUnread ? 'font-bold text-white' : ''}`}>{name}</span>
 
                         <div
                             className="opacity-0 group-hover/btn:opacity-100 transition-opacity p-1 hover:text-red-400"

@@ -12,6 +12,7 @@ export type Service = {
     icon: string
     columns_config: any
     owner_id: string | null
+    updated_at?: string
     share_count?: number
     share_meta?: {
         count: number
@@ -35,6 +36,7 @@ type ServiceContextType = {
     updateService: (id: string, updates: Partial<Service>) => Promise<void>
     deleteService: (id: string) => Promise<void>
     userId: string | null
+    lastViews: Record<string, string>
 }
 
 const ServiceContext = createContext<ServiceContextType | undefined>(undefined)
@@ -44,10 +46,11 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
     const [activeService, setActiveService] = useState<Service | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [userId, setUserId] = useState<string | null>(null)
+    const [lastViews, setLastViews] = useState<Record<string, string>>({})
     const supabase = createClient()
 
     // Derived state
-    const myServices = services.filter(s => s.owner_id === userId || !s.owner_id) // Treat null owner as "Mine" or "Legacy" for now
+    const myServices = services.filter(s => s.owner_id === userId || !s.owner_id)
     const sharedServices = services.filter(s => s.owner_id && s.owner_id !== userId)
 
     useEffect(() => {
@@ -70,27 +73,35 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 
+            // 0. Fetch Last Views
+            const { data: viewsData } = await supabase
+                .from('user_service_views')
+                .select('service_id, last_viewed_at')
+                .eq('user_id', user.id)
+
+            const viewsMap: Record<string, string> = {}
+            if (viewsData) {
+                viewsData.forEach((v: any) => {
+                    viewsMap[v.service_id] = v.last_viewed_at
+                })
+            }
+            setLastViews(viewsMap)
+
             // 1. Fetch My Services
             const { data: myData, error: myError } = await supabase
                 .from("services")
-                // Try to select origin_group_id. If this fails in the future, we should handle it, 
-                // but for now we assume the schema is up to date (013_add_origin_group.sql).
                 .select("*, service_permissions(grantee_type, origin_group_id, grantee_id)")
                 .eq("owner_id", user.id)
                 .order("name")
 
             if (myError) console.error("Error fetching my services", JSON.stringify(myError, null, 2))
 
-            // Process myData to analyze shares
             const processedMyData = (myData || []).map((s: any) => {
                 const perms = s.service_permissions || []
-
-                // Filter out self-permissions to avoid counting "me" as a share
                 const validPerms = perms.filter((p: any) => p.grantee_id !== user.id)
 
                 const count = validPerms.length
                 const types: ('user' | 'group')[] = []
-
                 const hasGroup = validPerms.some((p: any) => p.grantee_type === 'group' || !!p.origin_group_id)
                 const hasUser = validPerms.some((p: any) => p.grantee_type === 'user' && !p.origin_group_id)
 
@@ -103,23 +114,18 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
                 }
             })
 
-            // 2. Fetch Shared Services (via permissions)
+            // 2. Fetch Shared Services
             const { data: sharedData, error: sharedError } = await supabase
                 .from("services")
                 .select("*, service_permissions!inner(id, grantee_type, origin_group_id, status)")
                 .eq("service_permissions.status", "active")
-                .neq("owner_id", user.id) // Ensure we don't fetch our own services as "shared" (prevents overwrite)
+                .neq("owner_id", user.id)
 
             if (sharedError) console.error("Error fetching shared services", JSON.stringify(sharedError, null, 2))
 
-            const safeMyData = myData || []
             const safeSharedData = (sharedData || []).map((s: any) => {
                 const { service_permissions, ...service } = s
-
-                // Determine simplest path to "how it was shared"
                 const perms = service_permissions || []
-
-                // Prioritize Group info if exists
                 const groupShare = perms.find((p: any) => p.grantee_type === 'group' || !!p.origin_group_id)
 
                 return {
@@ -131,7 +137,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
                 }
             })
 
-            // Merge and dedup
+            // Merge
             const allServicesMap = new Map()
             processedMyData.forEach((s: any) => allServicesMap.set(s.id, s))
             safeSharedData.forEach((s) => allServicesMap.set(s.id, s))
@@ -148,12 +154,10 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
             } else if (currentActive) {
                 const updatedActive = mergedServices.find(s => s.id === currentActive.id)
                 if (updatedActive) {
-                    // Update if changed
                     if (JSON.stringify(updatedActive) !== JSON.stringify(currentActive)) {
                         setActiveService(updatedActive)
                     }
                 } else if (mergedServices.length > 0) {
-                    // Active service no longer available (access revoked?), switch to first
                     setActiveService(mergedServices[0])
                 } else {
                     setActiveService(null)
@@ -170,6 +174,31 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         fetchServices()
     }, [fetchServices])
+
+    // Subscription
+    useEffect(() => {
+        if (!userId) return
+
+        const channel = supabase
+            .channel('service_views_updates')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'user_service_views', filter: `user_id=eq.${userId}` },
+                (payload: any) => {
+                    if (payload.new && payload.new.service_id) {
+                        setLastViews(prev => ({
+                            ...prev,
+                            [payload.new.service_id]: payload.new.last_viewed_at
+                        }))
+                    }
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
+    }, [userId, supabase])
 
     const createService = async (service: Partial<Service>) => {
         try {
@@ -236,7 +265,6 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
-    // Update CSS variables when activeService changes
     useEffect(() => {
         if (activeService) {
             const root = document.documentElement
@@ -259,7 +287,8 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
             createService,
             updateService,
             deleteService,
-            userId
+            userId,
+            lastViews
         }}>
             {children}
         </ServiceContext.Provider>
