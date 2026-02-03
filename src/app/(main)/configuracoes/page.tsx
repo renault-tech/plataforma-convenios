@@ -58,6 +58,11 @@ function ConfiguracoesContent() {
     const [showAccessControl, setShowAccessControl] = useState(false)
     const { startTutorial } = useTutorial()
 
+    useEffect(() => {
+        // Auto-start tutorial for settings
+        setTimeout(() => startTutorial(false), 1000)
+    }, [])
+
     const searchParams = useSearchParams()
 
     // Set initial active tab when services load or URL params change

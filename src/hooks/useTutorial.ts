@@ -113,8 +113,13 @@ export function useTutorial() {
                 .filter(g => g !== null) as string[]
 
             const uniqueGroups = Array.from(new Set(allGroups))
-            const specificGroup = uniqueGroups.find(g => g !== 'global') // 'global' is legacy, we prefer 'home', 'dashboard', etc.
-            targetGroup = specificGroup || uniqueGroups[0]
+
+            // Priority: Specific Page > Home > Global
+            // We ignore 'global' and 'home' in the first pass to find 'dashboard', 'settings', etc.
+            const specificGroup = uniqueGroups.find(g => !['global', 'home'].includes(g))
+
+            // If no specific group found, fall back to 'home', then 'global', then whatever is there
+            targetGroup = specificGroup || uniqueGroups.find(g => g === 'home') || uniqueGroups[0]
         }
 
         if (!targetGroup) return

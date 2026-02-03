@@ -124,6 +124,8 @@ export default function DashboardPage() {
 
     useEffect(() => {
         setIsMounted(true)
+        // Auto-start tutorial specific for dashboard
+        setTimeout(() => startTutorial(false), 1000)
     }, [])
 
     // Load Data
