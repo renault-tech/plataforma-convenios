@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, MessageSquarePlus } from "lucide-react"
+import { Bell, MessageSquarePlus, HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useStore } from "@/lib/store"
 import { UserMenu } from "./UserMenu"
@@ -70,6 +70,15 @@ export function Navbar() {
             </div>
 
             <div className="flex items-center gap-2">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-slate-500 hover:text-blue-600"
+                    onClick={() => startTutorial(true)}
+                    title="Ajuda desta tela"
+                >
+                    <HelpCircle className="h-5 w-5" />
+                </Button>
                 <div
                     id="feedback-btn"
                     data-tour-group="global"

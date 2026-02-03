@@ -4,24 +4,55 @@ import { useEffect, useState } from "react"
 import { driver } from "driver.js"
 import { createClient } from "@/lib/supabase/client"
 
-type TourType = 'global' | 'service'
+type TourType = 'global' | 'service' | string
 
 export function useTutorial() {
     const supabase = createClient()
     const [driverObj, setDriverObj] = useState<any>(null)
 
+    // Helper to check if a tour group has been completed locally
+    const isTourSeen = (group: string) => {
+        if (typeof window === 'undefined') return false
+        try {
+            const seen = JSON.parse(localStorage.getItem('seen_tutorials') || '[]')
+            return seen.includes(group)
+        } catch {
+            return false
+        }
+    }
+
+    const markAsSeen = (group: string) => {
+        if (typeof window === 'undefined') return
+
+        // 1. Local Storage (Granular)
+        try {
+            const seen = JSON.parse(localStorage.getItem('seen_tutorials') || '[]')
+            if (!seen.includes(group)) {
+                const newSeen = [...seen, group]
+                localStorage.setItem('seen_tutorials', JSON.stringify(newSeen))
+            }
+        } catch (e) {
+            console.error("Error saving tutorial state", e)
+        }
+
+        // 2. DB (Global/Legacy) - Only updates 'has_seen_tutorial' flag once
+        // We do this silently in background
+        const updateDB = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                await supabase.from("profiles").update({ has_seen_tutorial: true }).eq("id", user.id)
+            }
+        }
+        updateDB()
+    }
+
     const getDynamicSteps = (tourGroup: string) => {
-        // Query all elements with the matching tour group
         const elements = document.querySelectorAll(`[data-tour-group='${tourGroup}']`)
 
-        // Convert NodeList to Array and map to driver.js steps
         const steps = Array.from(elements)
             .map((el) => {
                 const id = el.id ? `#${el.id}` : null
-                if (!id) return null // Driver.js needs an ID or class selector usually, effectively we need a selector.
-
-                // If element doesn't have ID, we might need to handle it, but for now enforcing IDs is safer for driver.js
-                // Alternatively, we could generate unique IDs if needed, but let's stick to existing IDs.
+                if (!id) return null
 
                 return {
                     element: id,
@@ -37,76 +68,75 @@ export function useTutorial() {
             .filter(step => step !== null)
             .sort((a: any, b: any) => a.order - b.order)
 
+        // Add the generic final step about the Help Icon
+        // Only if we found steps and the help icon exists
+        if (steps.length > 0 && document.getElementById('navbar-help-btn')) {
+            steps.push({
+                element: '#navbar-help-btn',
+                popover: {
+                    title: "Ajuda Sempre Disponível",
+                    description: "Sempre que tiver dúvidas sobre uma tela, clique neste ícone para ver o tutorial novamente.",
+                    side: "left",
+                    align: "center"
+                },
+                order: 9999
+            })
+        }
+
         return steps
     }
 
-    const initDriver = (steps: any[]) => {
+    const initDriver = (steps: any[], onFinish?: () => void) => {
         return driver({
             showProgress: true,
             animate: true,
             allowClose: true,
-            doneBtnText: "Concluir",
+            doneBtnText: "Entendi",
             nextBtnText: "Próximo",
             prevBtnText: "Anterior",
             steps: steps,
-            // Customizing buttons to ensure Close/Skip is visible if possible, 
-            // though standard driver.js relies on 'allowClose' for the X button.
-            // We can add a custom 'onPopoverRendered' to inject a close button if strictly needed,
-            // but standard UI is usually sufficient. Let's rely on standard X.
+            onDestroyed: () => {
+                if (onFinish) onFinish()
+            }
         })
     }
 
-    const markAsSeen = async () => {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-            await supabase.from("profiles").update({ has_seen_tutorial: true }).eq("id", user.id)
-        }
-    }
-
-    const startTutorial = (force = false, type: TourType | 'settings' | 'dashboard' = 'global') => {
+    const startTutorial = (force = false, type?: TourType) => {
         if (typeof document === 'undefined') return
 
-        const steps = getDynamicSteps(type)
+        let targetGroup = type
 
-        if (steps.length === 0) {
-            // Fallback or just don't start if no steps found
-            console.warn(`No tutorial steps found for group: ${type}`)
+        // Auto-detect context if not provided
+        if (!targetGroup) {
+            const allGroups = Array.from(document.querySelectorAll('[data-tour-group]'))
+                .map(el => el.getAttribute('data-tour-group'))
+                .filter(g => g !== null) as string[]
+
+            const uniqueGroups = Array.from(new Set(allGroups))
+            const specificGroup = uniqueGroups.find(g => g !== 'global') // 'global' is legacy, we prefer 'home', 'dashboard', etc.
+            targetGroup = specificGroup || uniqueGroups[0]
+        }
+
+        if (!targetGroup) return
+
+        // Check if seen (only if not forced)
+        if (!force && isTourSeen(targetGroup)) {
             return
         }
 
-        const drv = initDriver(steps)
+        const steps = getDynamicSteps(targetGroup)
+        if (steps.length === 0) return
 
-        if (force) {
-            drv.drive()
-            return
-        }
+        const drv = initDriver(steps, () => {
+            // Mark as seen when closed/finished
+            markAsSeen(targetGroup!)
+        })
 
-        // Only auto-start global tour
-        if (type === 'global') {
-            const checkAndStart = async () => {
-                const { data: { user } } = await supabase.auth.getUser()
-                if (!user) return
-
-                const { data: profile } = await supabase
-                    .from("profiles")
-                    .select("has_seen_tutorial")
-                    .eq("id", user.id)
-                    .single()
-
-                if (profile && !profile.has_seen_tutorial) {
-                    drv.drive()
-                    await markAsSeen()
-                }
-            }
-            checkAndStart()
-        }
+        drv.drive()
     }
 
-    // Auto-init global on mount (handled via startTutorial(false) elsewhere or here)
-    // We keep the original logic of exposing startTutorial
-    useEffect(() => {
-        startTutorial(false, 'global')
-    }, [])
+
 
     return { startTutorial }
 }
+

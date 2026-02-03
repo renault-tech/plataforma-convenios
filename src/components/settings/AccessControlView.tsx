@@ -21,14 +21,25 @@ export function AccessControlView({ onBack, autoOpenGroupCreate = false, service
                 <Button variant="ghost" size="icon" onClick={onBack}>
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
-                <div>
+                <div
+                    data-tour-group="access-control"
+                    data-tour-title="Controle de Acesso"
+                    data-tour-desc="Gerencie quem pode acessar seus serviços e o que podem fazer."
+                    data-tour-order="1"
+                >
                     <h2 className="text-2xl font-bold tracking-tight">Controle de Acesso</h2>
                     <p className="text-muted-foreground">Gerencie grupos de usuários e critérios de permissão.</p>
                 </div>
             </div>
 
             <Tabs defaultValue="groups" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                <TabsList
+                    className="grid w-full grid-cols-2 max-w-[400px]"
+                    data-tour-group="access-control"
+                    data-tour-title="Gerenciamento"
+                    data-tour-desc="Alterne entre gerenciar Grupos de Usuários e Critérios de Acesso."
+                    data-tour-order="2"
+                >
                     <TabsTrigger value="groups">Grupos de Usuários</TabsTrigger>
                     <TabsTrigger value="policies">Critérios de Acesso</TabsTrigger>
                 </TabsList>

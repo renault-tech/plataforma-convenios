@@ -17,6 +17,7 @@ import { ConsolidatedStatusWidget } from "@/components/inbox/ConsolidatedStatusW
 import { toast } from "sonner"
 import { useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useTutorial } from "@/hooks/useTutorial"
 import {
   DndContext,
   closestCenter,
@@ -167,6 +168,16 @@ function InboxDashboard({ services }: { services: any[] }) {
   const [showAlertSettings, setShowAlertSettings] = useState(false)
   const supabase = createClient()
   const { activeService } = useService()
+  const { startTutorial } = useTutorial()
+
+  // Auto-start tutorial on home page
+  useEffect(() => {
+    // Add a small delay to ensure widgets are rendered
+    const timer = setTimeout(() => {
+      startTutorial(false)
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [])
 
   // Using useInbox context for metrics
   const { metrics, isLoading: metricsLoading, userSettings } = useInbox()
@@ -330,7 +341,14 @@ function InboxDashboard({ services }: { services: any[] }) {
       />
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+      <div
+        id="home-header"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-100 shadow-sm"
+        data-tour-group="home"
+        data-tour-title="Caixa de Entrada"
+        data-tour-desc="Sua visão geral de tarefas e alertas. Personalize com widgets."
+        data-tour-order="5"
+      >
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Caixa de Entrada</h1>
           <p className="text-slate-500 mt-1">Visão geral de todas as suas pendências e prazos.</p>
@@ -347,7 +365,14 @@ function InboxDashboard({ services }: { services: any[] }) {
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={cardOrder} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div
+            id="home-widgets"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+            data-tour-group="home"
+            data-tour-title="Widgets Interativos"
+            data-tour-desc="Seus indicadores são flexíveis: <br/>• <b>Arrastar:</b> Clique e segure para mudar a ordem.<br/>• <b>Clicar:</b> Abre detalhes completos.<br/>• <b>Excluir:</b> Use o 'X' para remover da tela."
+            data-tour-order="6"
+          >
             {cardOrder.map(cardId => {
               // Dynamic Status Cards
               if (cardId.startsWith('status-')) {
@@ -503,7 +528,14 @@ function InboxDashboard({ services }: { services: any[] }) {
 
         {/* Shortcuts (Left/Center - 2/3 width) */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+          <div
+            id="home-shortcuts"
+            className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm"
+            data-tour-group="home"
+            data-tour-title="Seus Serviços"
+            data-tour-desc="Acesso rápido aos seus aplicativos e criação de novos serviços."
+            data-tour-order="7"
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                 <LinkIcon className="h-4 w-4 text-blue-500" />
@@ -546,7 +578,14 @@ function InboxDashboard({ services }: { services: any[] }) {
 
         {/* Recent Activity (Right - 1/3 width) */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm h-full max-h-[500px] overflow-hidden flex flex-col">
+          <div
+            id="home-activity"
+            className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm h-full max-h-[500px] overflow-hidden flex flex-col"
+            data-tour-group="home"
+            data-tour-title="Atividade Recente"
+            data-tour-desc="Histórico global de mudanças em todos os seus serviços."
+            data-tour-order="8"
+          >
             <h3 className="font-semibold text-slate-900 mb-6 flex items-center gap-2">
               <Clock className="h-4 w-4 text-purple-500" />
               Atividade Recente

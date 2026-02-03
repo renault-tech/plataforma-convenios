@@ -56,7 +56,7 @@ export function Sidebar() {
                 <nav
                     id="sidebar-nav"
                     className="space-y-1 px-2"
-                    data-tour-group="global"
+                    data-tour-group="home"
                     data-tour-title="Navegação Principal"
                     data-tour-desc="Aqui você acessa o Dashboard, suas Planilhas e Configurações."
                     data-tour-order="1"
@@ -129,7 +129,7 @@ export function Sidebar() {
                     <CollapsibleContent
                         id="sidebar-my-services"
                         className="space-y-1"
-                        data-tour-group="global"
+                        data-tour-group="home"
                         data-tour-title="Seus Aplicativos"
                         data-tour-desc="Seus aplicativos aparecem aqui. <br/><br/><b>Legenda de Ícones:</b><br/>🏁 <b>Database:</b> Aplicativo padrão.<br/>🎨 <b>Tarja Colorida:</b> Identifica visualmente o app."
                         data-tour-order="2"
@@ -176,10 +176,7 @@ export function Sidebar() {
                                                 ) : (
                                                     <Database
                                                         className="h-3.5 w-3.5"
-                                                        style={isActive ? {
-                                                            fill: service.primary_color || '#3b82f6',
-                                                            stroke: service.primary_color || '#3b82f6'
-                                                        } : { opacity: 0.7 }}
+                                                        style={{ opacity: 0.7 }}
                                                     />
                                                 )}
                                             </div>
@@ -199,7 +196,7 @@ export function Sidebar() {
                         open={isOpenShared}
                         onOpenChange={setIsOpenShared}
                         className="space-y-1 mt-4"
-                        data-tour-group="global"
+                        data-tour-group="home"
                         data-tour-title="Compartilhados com Você"
                         data-tour-desc="Aqui ficam os apps de outros usuários. <br/><br/><b>Legenda de Ícones:</b><br/>👤 <b>1 Boneco (Verde):</b> Compartilhado diretamente com você.<br/>👥 <b>2 Bonecos (Laranja):</b> Compartilhado via Grupo de Acesso."
                         data-tour-order="3"
@@ -267,7 +264,17 @@ export function Sidebar() {
                     <div className="h-[1px] bg-slate-800" />
                 </div>
 
-                <Collapsible open={isOpenConversations} onOpenChange={setIsOpenConversations} className="space-y-1">
+                <Collapsible
+                    id="sidebar-chat"
+                    open={isOpenConversations}
+                    onOpenChange={setIsOpenConversations}
+                    className="space-y-1"
+                    data-tour-group="home"
+                    data-tour-title="Chat Global"
+                    data-tour-desc="Converse com sua equipe e tire dúvidas em tempo real."
+                    data-tour-order="4"
+                    data-tour-side="right"
+                >
                     <div className="flex items-center justify-between px-2 py-1">
                         <CollapsibleTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-6 w-full justify-start p-0 text-xs font-semibold text-slate-500 hover:text-slate-300 hover:bg-transparent uppercase" suppressHydrationWarning>

@@ -21,7 +21,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { cn } from "@/lib/utils"
+import { cn, getLegibleTextColor } from "@/lib/utils"
 import { Pencil, Trash2, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Paperclip, FileText, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RowDetails } from "@/components/ui/RowDetails"
@@ -66,7 +66,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
                     <Button
                         variant="ghost"
                         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                        className={`-ml-4 h-8 data-[state=open]:bg-accent hover:bg-slate-100/50 justify-start ${index === 0 ? 'pl-[64px]' : ''}`}
+                        className={`-ml-4 h-8 data-[state=open]:bg-accent hover:bg-slate-100/50 ${index === 0 ? 'justify-start pl-[64px]' : 'justify-center w-full'}`}
                     >
                         {col.label}
                         {column.getIsSorted() === "asc" ? (
@@ -131,8 +131,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
 
                 const content = renderContent()
 
-                // If NOT first column, return simple content
-                if (index !== 0) return content
+                if (index !== 0) return <div className="flex justify-center items-center w-full h-full">{content}</div>
 
                 // If FIRST column, prepend the Expander and Indicators
                 const hasDetails = !!row.original.details
@@ -272,7 +271,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
                                         <TableHead
                                             key={header.id}
                                             className="h-12 px-4 text-left align-middle font-bold text-slate-800 uppercase tracking-wider text-sm border-b-2 border-slate-100 min-w-[150px]"
-                                            style={{ color: primaryColor ? `${primaryColor}` : undefined }}
+                                            style={{ color: primaryColor ? getLegibleTextColor(primaryColor) : undefined }}
                                         >
                                             {header.isPlaceholder
                                                 ? null

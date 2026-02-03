@@ -129,7 +129,7 @@ function ConfiguracoesContent() {
                             <div className="flex items-center gap-2">
                                 <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
                                 <button
-                                    onClick={() => startTutorial(true, 'settings')}
+                                    onClick={() => startTutorial(true)}
                                     className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-full transition-colors mt-1"
                                     title="Tutorial de Configurações"
                                 >

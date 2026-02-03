@@ -402,18 +402,30 @@ export default function DashboardPage() {
 
             {/* Header */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div>
+                <div
+                    id="dashboard-header"
+                    data-tour-group="dashboard"
+                    data-tour-title="Dashboard Geral"
+                    data-tour-desc="Aqui você tem uma visão geral de todos os indicadores do serviço selecionado."
+                    data-tour-order="1"
+                >
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
                     <p className="text-slate-500 mt-1">
                         Visão analítica de <strong style={{ color: activeService.primary_color }}>{activeService.name}</strong>
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div
+                    className="flex items-center gap-3"
+                    data-tour-group="dashboard"
+                    data-tour-title="Widgets & Personalização"
+                    data-tour-desc="Clique no relógio para adicionar novos widgets. Arraste os cards para organizar seu painel como preferir."
+                    data-tour-order="2"
+                >
                     {/* The explicit Add Button is removed as requested */}
                     {/* Tutorial Help Button logic can be here if needed */}
                     <button
-                        onClick={() => startTutorial(true, 'dashboard')}
-                        className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-full transition-colors"
+                        onClick={() => startTutorial(true)}
+                        className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-full transition-colors hidden" // Hidden to reduce clutter since we have global help
                         title="Tutorial"
                     >
                         <HelpCircle className="h-5 w-5" />
@@ -573,7 +585,13 @@ export default function DashboardPage() {
 
             {/* Static Charts Section (Preserved Original) */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4">
+                <Card
+                    className="col-span-4"
+                    data-tour-group="dashboard"
+                    data-tour-title="Evolução Mensal"
+                    data-tour-desc="Este gráfico mostra o volume de registros criados nos últimos 6 meses."
+                    data-tour-order="3"
+                >
                     <CardHeader>
                         <CardTitle>Evolução Mensal</CardTitle>
                     </CardHeader>
@@ -597,7 +615,13 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="col-span-3">
+                <Card
+                    className="col-span-3"
+                    data-tour-group="dashboard"
+                    data-tour-title="Atividade Recente"
+                    data-tour-desc="Lista dos 5 últimos itens registrados ou modificados."
+                    data-tour-order="4"
+                >
                     <CardHeader>
                         <CardTitle>Atividade Recente</CardTitle>
                     </CardHeader>

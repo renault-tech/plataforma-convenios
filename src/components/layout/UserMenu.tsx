@@ -117,7 +117,7 @@ export function UserMenu() {
                         )}
                         <DropdownMenuItem onClick={() => startTutorial(true)}>
                             <MessageSquare className="mr-2 h-4 w-4" />
-                            <span>Tutorial</span>
+                            <span>Tutorial desta Tela</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 cursor-pointer">

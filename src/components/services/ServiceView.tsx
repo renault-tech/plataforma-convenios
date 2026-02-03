@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { Pencil, X, HelpCircle, PlusCircle, LayoutDashboard, Calendar as CalendarIcon, DollarSign, Activity, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
-import { cn, getContrastYIQ } from "@/lib/utils"
+import { cn, getContrastYIQ, getLegibleTextColor } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 import { ShareServiceDialog } from "@/components/services/ShareServiceDialog"
@@ -315,7 +315,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                             </div>
                         ) : (
                             <div className="flex items-center gap-2 group">
-                                <h1 className="text-2xl font-bold" style={{ color: activeService.primary_color }}>
+                                <h1 className="text-2xl font-bold" style={{ color: getLegibleTextColor(activeService.primary_color) }}>
                                     {activeService.name}
                                 </h1>
                                 <button
@@ -343,13 +343,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                         <>
                             {/* WIDGETS BUTTON REMOVED */}
 
-                            <button
-                                onClick={() => startTutorial(true, 'service')}
-                                className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-full transition-colors"
-                                title="Tutorial da Planilha"
-                            >
-                                <HelpCircle className="h-5 w-5" />
-                            </button>
+
 
                             <div id="service-info-btn">
                                 <ServiceInfoDialog service={activeService} />
@@ -379,7 +373,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                                     onSave={handleCreateItem}
                                     serviceName={activeService.name}
                                     trigger={
-                                        <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2" style={{ backgroundColor: activeService.primary_color }}>
+                                        <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 hover:opacity-90" style={{ backgroundColor: activeService.primary_color, color: getContrastYIQ(activeService.primary_color) }}>
                                             <Pencil className="mr-2 h-4 w-4" />
                                             Adicionar Item
                                         </button>
