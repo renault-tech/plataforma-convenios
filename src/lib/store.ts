@@ -19,6 +19,8 @@ interface AppState {
     columns: ColumnDefinition[]
     agreements: Agreement[]
     zoomLevel: number // 100% = 1.0
+    isDarkMode: boolean
+    isSidebarCollapsed: boolean
     addColumn: (col: ColumnDefinition) => void
     removeColumn: (id: string) => void
     addAgreement: (agreement: Agreement) => void
@@ -28,6 +30,8 @@ interface AppState {
     increaseZoom: () => void
     decreaseZoom: () => void
     resetZoom: () => void
+    toggleDarkMode: () => void
+    toggleSidebar: () => void
 }
 
 export const useStore = create<AppState>()(
@@ -67,6 +71,8 @@ export const useStore = create<AppState>()(
                 }
             ],
             zoomLevel: 1.0,
+            isDarkMode: false,
+            isSidebarCollapsed: false,
             addColumn: (col) => set((state) => ({ columns: [...state.columns, col] })),
             removeColumn: (id) =>
                 set((state) => ({ columns: state.columns.filter((c) => c.id !== id) })),
@@ -86,6 +92,19 @@ export const useStore = create<AppState>()(
             increaseZoom: () => set((state) => ({ zoomLevel: Math.min(state.zoomLevel + 0.1, 1.5) })),
             decreaseZoom: () => set((state) => ({ zoomLevel: Math.max(state.zoomLevel - 0.1, 0.5) })),
             resetZoom: () => set({ zoomLevel: 1.0 }),
+            toggleDarkMode: () => set((state) => {
+                const newDarkMode = !state.isDarkMode
+                // Apply dark class to html element
+                if (typeof document !== 'undefined') {
+                    if (newDarkMode) {
+                        document.documentElement.classList.add('dark')
+                    } else {
+                        document.documentElement.classList.remove('dark')
+                    }
+                }
+                return { isDarkMode: newDarkMode }
+            }),
+            toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
         }),
         {
             name: 'convenios-storage',

@@ -27,6 +27,7 @@ import { WidgetGallery } from "@/components/inbox/WidgetGallery"
 import { DateTimeWidget } from "@/components/inbox/DateTimeWidget"
 import { AlertSettingsDialog } from "@/components/inbox/AlertSettingsDialog"
 import { CardDetailModal } from "@/components/inbox/CardDetailModal"
+import { ServiceQuickButtons } from "@/components/services/ServiceQuickButtons"
 
 // Drag and Drop
 import {
@@ -434,6 +435,16 @@ export default function DashboardPage() {
                     </button>
                     <DateTimeWidget onAddWidget={() => setShowWidgetGallery(true)} />
                 </div>
+            </div>
+
+            {/* Service Quick Buttons */}
+            <div
+                data-tour-group="dashboard"
+                data-tour-title="Atalhos de Planilhas"
+                data-tour-desc="Acesse rapidamente suas planilhas através destes botões."
+                data-tour-order="3"
+            >
+                <ServiceQuickButtons />
             </div>
 
             {/* Draggable Widgets Grid */}

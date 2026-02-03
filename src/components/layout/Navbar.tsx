@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, MessageSquarePlus, HelpCircle } from "lucide-react"
+import { Bell, MessageSquarePlus, HelpCircle, Sun, Moon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useStore } from "@/lib/store"
 import { UserMenu } from "./UserMenu"
@@ -48,26 +48,42 @@ export function Navbar() {
         }
     }, [])
 
-    const { zoomLevel, increaseZoom, decreaseZoom, resetZoom } = useStore()
+
+    const { zoomLevel, increaseZoom, decreaseZoom, resetZoom, isDarkMode, toggleDarkMode } = useStore()
 
     return (
-        <header className="flex h-14 items-center gap-4 border-b bg-background px-6">
+        <header className="flex h-14 items-center gap-4 border-b bg-background dark:bg-slate-900 dark:border-slate-700 px-6">
             <div className="flex-1">
-                <h1 className="text-lg font-semibold">Gestão de Parcerias</h1>
+                <h1 className="text-lg font-semibold dark:text-slate-50">Gestão de Parcerias</h1>
             </div>
 
             {/* Zoom Controls */}
-            <div className="flex items-center gap-1 mr-2 bg-slate-100 rounded-md p-1">
+            <div className="flex items-center gap-1 mr-2 bg-slate-100 dark:bg-slate-800 rounded-md p-1">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={decreaseZoom} disabled={zoomLevel <= 0.5}>
                     <span className="text-sm font-bold">-</span>
                 </Button>
-                <button onClick={resetZoom} className="text-xs font-medium w-12 text-center hover:bg-slate-200 rounded px-1 py-0.5 transition-colors">
+                <button onClick={resetZoom} className="text-xs font-medium w-12 text-center hover:bg-slate-200 dark:hover:bg-slate-700 rounded px-1 py-0.5 transition-colors">
                     {Math.round(zoomLevel * 100)}%
                 </button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={increaseZoom} disabled={zoomLevel >= 1.5}>
                     <span className="text-sm font-bold">+</span>
                 </Button>
             </div>
+
+            {/* Dark Mode Toggle */}
+            <button
+                onClick={toggleDarkMode}
+                className="relative h-9 w-16 bg-slate-200 dark:bg-slate-700 rounded-full p-1 transition-colors duration-300 hover:bg-slate-300 dark:hover:bg-slate-600 mr-2"
+                title={isDarkMode ? "Modo Claro" : "Modo Escuro"}
+            >
+                <div className={`absolute top-1 left-1 h-7 w-7 bg-white dark:bg-slate-900 rounded-full shadow-md transition-transform duration-300 flex items-center justify-center ${isDarkMode ? 'translate-x-7' : 'translate-x-0'}`}>
+                    {isDarkMode ? (
+                        <Moon className="h-4 w-4 text-slate-300" />
+                    ) : (
+                        <Sun className="h-4 w-4 text-yellow-500" />
+                    )}
+                </div>
+            </button>
 
             <div className="flex items-center gap-2">
                 <Button

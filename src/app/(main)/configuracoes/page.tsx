@@ -234,7 +234,7 @@ export default function ConfiguracoesPage() {
 // --- Sub-Components ---
 
 function CreateServiceForm({ onSuccess }: { onSuccess: (id: string) => void }) {
-    const { createService } = useService()
+    const { createService, setActiveService } = useService()
     const [loading, setLoading] = useState(false)
     const form = useForm<ServiceData>({
         defaultValues: {
@@ -255,6 +255,8 @@ function CreateServiceForm({ onSuccess }: { onSuccess: (id: string) => void }) {
             })
 
             if (newService) {
+                // Auto-select the new service
+                setActiveService(newService)
                 onSuccess(newService.id)
             }
         } catch (error) {

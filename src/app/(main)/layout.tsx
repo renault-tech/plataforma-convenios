@@ -7,9 +7,11 @@ import { GroupProvider } from "@/contexts/GroupContext";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { InboxProvider } from "@/contexts/InboxContext";
 import { useStore } from "@/lib/store";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 function MainContentWrapper({ children }: { children: React.ReactNode }) {
     const { zoomLevel } = useStore()
+    useDarkMode() // Sync dark mode with DOM
     return (
         <main
             className="flex-1 overflow-auto bg-slate-50/50 p-6 transition-all duration-200 ease-in-out"

@@ -8,7 +8,7 @@ import { Search, MessageSquare, Plus, Trash2 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-export function GlobalChatList({ onSelect }: { onSelect?: (rect: DOMRect) => void }) {
+export function GlobalChatList({ onSelect, collapsed = false }: { onSelect?: (rect: DOMRect) => void, collapsed?: boolean }) {
     const { conversations, activeConversation, openConversation, closeChat, currentUser, deleteConversation } = useChat()
 
     // Filter for GLOBAL chats only (or DMs)
@@ -27,6 +27,7 @@ export function GlobalChatList({ onSelect }: { onSelect?: (rect: DOMRect) => voi
     }
 
     if (filtered.length === 0) {
+        if (collapsed) return null
         return (
             <div className="px-6 py-2 text-xs text-slate-500 italic">
                 Nenhuma conversa.
@@ -35,7 +36,7 @@ export function GlobalChatList({ onSelect }: { onSelect?: (rect: DOMRect) => voi
     }
 
     return (
-        <div className="space-y-1">
+        <div className={`space-y-1 ${collapsed ? 'px-2' : ''}`}>
             {filtered.map(convo => {
                 const isActive = activeConversation?.id === convo.id
                 // If it's a DM, find the other person's name/avatar
@@ -44,6 +45,30 @@ export function GlobalChatList({ onSelect }: { onSelect?: (rect: DOMRect) => voi
 
                 // Fix: Ensure strict boolean to avoid rendering '0'
                 const hasUnread = (convo.unread_count || 0) > 0
+
+                if (collapsed) {
+                    return (
+                        <Button
+                            key={convo.id}
+                            variant="ghost"
+                            size="sm"
+                            className={`w-10 h-10 justify-center p-0 rounded-lg mx-auto relative group/btn ${isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                            onClick={(e) => handleSelect(e, convo.id)}
+                            title={name}
+                        >
+                            <div className="relative">
+                                <Avatar className="h-6 w-6">
+                                    <AvatarFallback className="bg-slate-700 text-slate-300 text-[10px]">
+                                        {(name[0] || 'U').toUpperCase()}
+                                    </AvatarFallback>
+                                </Avatar>
+                                {hasUnread && (
+                                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-slate-900" />
+                                )}
+                            </div>
+                        </Button>
+                    )
+                }
 
                 return (
                     <Button

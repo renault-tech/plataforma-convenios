@@ -136,7 +136,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
                 // If FIRST column, prepend the Expander and Indicators
                 const hasDetails = !!row.original.details
                 const hasAttachments = row.original.attachments && row.original.attachments.length > 0
-                const isNew = !lastViewedAt || (!!row.original.updated_at && new Date(row.original.updated_at).getTime() > new Date(lastViewedAt).getTime())
+                const isNew = !!lastViewedAt && (!!row.original.updated_at && new Date(row.original.updated_at).getTime() > new Date(lastViewedAt).getTime())
 
                 return (
                     <div className="relative pl-12 flex items-center h-full min-h-[20px]">
@@ -298,8 +298,9 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
                             ))
                         ) : table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row, index) => {
-                                // Let's use the same logic as Sidebar: !lastViewedAt || updated > lastViewedAt.
-                                const isNew = !lastViewedAt || (!!row.original.updated_at && new Date(row.original.updated_at).getTime() > new Date(lastViewedAt).getTime())
+                                // Only mark as new if we HAVE a previous view date and the item is newer than that.
+                                // This prevents "all blue" on first load or F5 when lastViewedAt might be undefined initially.
+                                const isNew = !!lastViewedAt && (!!row.original.updated_at && new Date(row.original.updated_at).getTime() > new Date(lastViewedAt).getTime())
                                 const isHighlighted = highlightedItemId === row.original.id
 
                                 return (

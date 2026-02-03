@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, FileText, Settings, Database, Users, User, Share2, Plus, ChevronDown, ChevronRight, Inbox, Loader2, Upload, MessageSquare, ArrowLeft } from "lucide-react"
+import { LayoutDashboard, FileText, Settings, Database, Users, User, Share2, Plus, ChevronDown, ChevronRight, Inbox, Loader2, Upload, MessageSquare, ArrowLeft, Menu } from "lucide-react"
 import { useState, useEffect, useRef, useMemo } from "react"
 import { GlobalChatList } from "@/components/chat/GlobalChatList"
 import { ConversationBalloon } from "@/components/chat/ConversationBalloon"
@@ -20,6 +20,8 @@ import { useService } from "@/contexts/ServiceContext"
 import { useGroup } from "@/contexts/GroupContext"
 import { Skeleton } from "@/components/ui/skeleton"
 import { createClient } from "@/lib/supabase/client"
+import { useStore } from "@/lib/store"
+import { getContrastColor } from "@/lib/color-utils"
 
 export function Sidebar() {
     const pathname = usePathname()
@@ -27,6 +29,7 @@ export function Sidebar() {
     const { services, myServices, sharedServices, isLoading: servicesLoading, activeService, lastViews } = useService()
     const { groups, isLoading: groupsLoading } = useGroup()
     const { activeConversation, closeChat, conversations } = useChat()
+    const { isSidebarCollapsed, toggleSidebar } = useStore()
 
     // Collapsible states
     const [isOpenServices, setIsOpenServices] = useState(true)
@@ -42,17 +45,30 @@ export function Sidebar() {
     const isLoading = servicesLoading || groupsLoading
 
     return (
-        <div ref={sidebarRef} className="flex h-screen w-64 flex-col border-r border-slate-800 bg-slate-900 text-slate-300 relative">
+        <div ref={sidebarRef} className={cn(
+            "flex h-screen flex-col border-r border-slate-800 bg-slate-900 text-slate-300 relative transition-all duration-300",
+            isSidebarCollapsed ? "w-16 overflow-hidden" : "w-64"
+        )}>
             {/* Logo/Header */}
-            <div className="flex h-16 items-center border-b border-slate-800 px-6 justify-between">
-                <div className="flex items-center">
-                    <Database className="mr-2 h-6 w-6 text-blue-500" />
-                    <span className="text-lg font-bold text-white">GovManager</span>
+            <div className="flex h-16 items-center border-b border-slate-800 px-6 justify-between flex-shrink-0">
+                <div className="flex items-center overflow-hidden">
+                    <Database className={cn("h-6 w-6 text-blue-500 flex-shrink-0", isSidebarCollapsed ? "mr-0" : "mr-2")} />
+                    {!isSidebarCollapsed && <span className="text-lg font-bold text-white whitespace-nowrap">GovManager</span>}
                 </div>
+                <button
+                    onClick={toggleSidebar}
+                    className="p-1.5 hover:bg-slate-800 rounded transition-colors flex-shrink-0"
+                    title={isSidebarCollapsed ? "Expandir sidebar" : "Recolher sidebar"}
+                >
+                    <Menu className="h-5 w-5 text-slate-400" />
+                </button>
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-auto py-4">
+            <div className={cn(
+                "flex-1 py-4",
+                isSidebarCollapsed ? "overflow-hidden" : "overflow-auto"
+            )}>
                 <nav
                     id="sidebar-nav"
                     className="space-y-1 px-2"
@@ -67,12 +83,22 @@ export function Sidebar() {
                             variant="ghost"
                             size="sm"
                             className={cn(
-                                "w-full justify-start pl-2 text-sm",
-                                pathname === "/" ? "bg-slate-800 text-white" : "hover:text-white hover:bg-slate-800"
+                                "w-full text-sm transition-all",
+                                isSidebarCollapsed ? "justify-center px-0 h-10 w-10 rounded-lg mx-auto" : "justify-start pl-2",
+                                pathname === "/" ? "text-white" : "text-slate-400 hover:text-white hover:bg-slate-800"
                             )}
+                            style={pathname === "/" ? (
+                                isSidebarCollapsed ? {
+                                    backgroundColor: activeService?.primary_color || '#3b82f6',
+                                    color: getContrastColor(activeService?.primary_color || '#3b82f6'),
+                                } : {
+                                    backgroundColor: 'rgb(30 41 59)', // slate-800
+                                }
+                            ) : {}}
+                            title={isSidebarCollapsed ? "Início" : ""}
                         >
-                            <LayoutDashboard className="mr-2 h-4 w-4" />
-                            Início
+                            <LayoutDashboard className={cn("h-4 w-4", !isSidebarCollapsed && "mr-2")} />
+                            {!isSidebarCollapsed && "Início"}
                         </Button>
                     </Link>
                     <Link href="/dashboard">
@@ -80,15 +106,24 @@ export function Sidebar() {
                             variant="ghost"
                             size="sm"
                             className={cn(
-                                "w-full justify-start pl-2 text-sm",
-                                pathname === "/dashboard" ? "bg-slate-800 text-white" : "hover:text-white hover:bg-slate-800"
+                                "w-full text-sm transition-all",
+                                isSidebarCollapsed ? "justify-center px-0 h-10 w-10 rounded-lg mx-auto" : "justify-start pl-2",
+                                (pathname === "/dashboard" || pathname.startsWith("/dashboard/"))
+                                    ? (isSidebarCollapsed ? "text-white" : "bg-slate-800 text-white")
+                                    : "text-slate-400 hover:text-white hover:bg-slate-800"
                             )}
-                            style={activeService ? {
-                                borderRight: `12px solid ${activeService.primary_color || '#3b82f6'}`,
-                            } : {}}
+                            style={activeService ? (
+                                isSidebarCollapsed ? {
+                                    backgroundColor: activeService.primary_color || '#3b82f6',
+                                    color: getContrastColor(activeService.primary_color || '#3b82f6'),
+                                } : {
+                                    borderRight: `12px solid ${activeService.primary_color || '#3b82f6'}`,
+                                }
+                            ) : {}}
+                            title={isSidebarCollapsed ? "Dashboard" : ""}
                         >
-                            <FileText className="mr-2 h-4 w-4" />
-                            Dashboard
+                            <FileText className={cn("h-4 w-4", !isSidebarCollapsed && "mr-2")} />
+                            {!isSidebarCollapsed && "Dashboard"}
                         </Button>
                     </Link>
 
@@ -97,100 +132,153 @@ export function Sidebar() {
                             variant="ghost"
                             size="sm"
                             className={cn(
-                                "w-full justify-start pl-2 text-sm",
-                                pathname.startsWith("/configuracoes") ? "bg-slate-800 text-white" : "hover:text-white hover:bg-slate-800"
+                                "w-full text-sm transition-all",
+                                isSidebarCollapsed ? "justify-center px-0 h-10 w-10 rounded-lg mx-auto" : "justify-start pl-2",
+                                pathname.startsWith("/configuracoes") ? "text-white" : "text-slate-400 hover:text-white hover:bg-slate-800"
                             )}
+                            style={pathname.startsWith("/configuracoes") ? (
+                                isSidebarCollapsed ? {
+                                    backgroundColor: activeService?.primary_color || '#3b82f6',
+                                    color: getContrastColor(activeService?.primary_color || '#3b82f6'),
+                                } : {
+                                    backgroundColor: 'rgb(30 41 59)', // slate-800
+                                }
+                            ) : {}}
+                            title={isSidebarCollapsed ? "Configurações" : ""}
                         >
-                            <Settings className="mr-2 h-4 w-4" />
-                            Configurações
+                            <Settings className={cn("h-4 w-4", !isSidebarCollapsed && "mr-2")} />
+                            {!isSidebarCollapsed && "Configurações"}
                         </Button>
                     </Link>
                 </nav>
 
-                <div className="mt-4 px-4 py-2">
+                {/* Separator */}
+                <div className={cn("mt-4 py-2", isSidebarCollapsed ? "px-2" : "px-4")}>
                     <div className="h-[1px] bg-slate-800" />
                 </div>
 
                 {/* MY SERVICES */}
-                <Collapsible open={isOpenServices} onOpenChange={setIsOpenServices} className="space-y-1">
-                    <div className="flex items-center justify-between px-2 py-1">
-                        <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 w-full justify-start p-0 text-xs font-semibold text-slate-500 hover:text-slate-300 hover:bg-transparent uppercase" suppressHydrationWarning>
-                                {isOpenServices ? <ChevronDown className="mr-2 h-3 w-3" /> : <ChevronRight className="mr-2 h-3 w-3" />}
-                                Meus Aplicativos
-                            </Button>
-                        </CollapsibleTrigger>
-                        <Link href="/configuracoes?tab=new">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-white hover:bg-slate-800 rounded-full">
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </Link>
-                    </div>
-                    <CollapsibleContent
-                        id="sidebar-my-services"
-                        className="space-y-1"
-                        data-tour-group="home"
-                        data-tour-title="Seus Aplicativos"
-                        data-tour-desc="Seus aplicativos aparecem aqui. <br/><br/><b>Legenda de Ícones:</b><br/>🏁 <b>Database:</b> Aplicativo padrão.<br/>🎨 <b>Tarja Colorida:</b> Identifica visualmente o app."
-                        data-tour-order="2"
-                        data-tour-side="right"
-                    >
-                        {isLoading ? (
-                            <div className="px-6 py-2">
-                                <Skeleton className="h-4 w-3/4 bg-slate-800" />
-                            </div>
-                        ) : sortedMyServices.length === 0 ? (
-                            <div className="px-2 py-2 text-xs text-slate-600 italic">
-                                Nenhum aplicativo criado.
-                            </div>
-                        ) : (
-                            sortedMyServices.map(service => {
-                                const isActive = activeService?.id === service.id
-                                const shareMeta = service.share_meta || { count: 0, types: [] }
-                                const hasGroup = shareMeta.types.includes('group')
-                                const hasUser = shareMeta.types.includes('user')
+                {!isSidebarCollapsed ? (
+                    <Collapsible open={isOpenServices} onOpenChange={setIsOpenServices} className="space-y-1">
+                        <div className="flex items-center justify-between px-2 py-1">
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-6 w-full justify-start p-0 text-xs font-semibold text-slate-500 hover:text-slate-300 hover:bg-transparent uppercase" suppressHydrationWarning>
+                                    {isOpenServices ? <ChevronDown className="mr-2 h-3 w-3" /> : <ChevronRight className="mr-2 h-3 w-3" />}
+                                    Meus Aplicativos
+                                </Button>
+                            </CollapsibleTrigger>
+                            <Link href="/configuracoes?tab=new">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-white hover:bg-slate-800 rounded-full">
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            </Link>
+                        </div>
+                        <CollapsibleContent
+                            id="sidebar-my-services"
+                            className="space-y-1"
+                            data-tour-group="home"
+                            data-tour-title="Seus Aplicativos"
+                            data-tour-desc="Seus aplicativos aparecem aqui. <br/><br/><b>Legenda de Ícones:</b><br/>🏁 <b>Database:</b> Aplicativo padrão.<br/>🎨 <b>Tarja Colorida:</b> Identifica visualmente o app."
+                            data-tour-order="2"
+                            data-tour-side="right"
+                        >
+                            {isLoading ? (
+                                <div className="px-6 py-2">
+                                    <Skeleton className="h-4 w-3/4 bg-slate-800" />
+                                </div>
+                            ) : sortedMyServices.length === 0 ? (
+                                <div className="px-2 py-2 text-xs text-slate-600 italic">
+                                    Nenhum aplicativo criado.
+                                </div>
+                            ) : (
+                                sortedMyServices.map(service => {
+                                    const isActive = activeService?.id === service.id
+                                    const shareMeta = service.share_meta || { count: 0, types: [] }
+                                    const hasGroup = shareMeta.types.includes('group')
+                                    const hasUser = shareMeta.types.includes('user')
 
-                                return (
-                                    <Link key={service.id} href={`/servicos/${service.slug}`}>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className={cn(
-                                                "w-full justify-start pl-6 text-sm font-normal relative group/btn",
-                                                isActive
-                                                    ? "bg-slate-800 text-white"
-                                                    : "text-slate-400 hover:text-white hover:bg-slate-800"
-                                            )}
-                                            style={isActive ? {
-                                                borderLeft: `12px solid ${service.primary_color || '#3b82f6'}`,
-                                                backgroundColor: `${service.primary_color || '#3b82f6'}15`
-                                            } : {}}
-                                        >
-                                            <div className="relative mr-2">
-                                                {shareMeta.count > 0 ? (
-                                                    hasGroup ? (
-                                                        <Users className="h-3.5 w-3.5 text-orange-400" />
-                                                    ) : (
-                                                        <User className="h-3.5 w-3.5 text-green-400" />
-                                                    )
-                                                ) : (
-                                                    <Database
-                                                        className="h-3.5 w-3.5"
-                                                        style={{ opacity: 0.7 }}
-                                                    />
+                                    return (
+                                        <Link key={service.id} href={`/servicos/${service.slug}`}>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className={cn(
+                                                    "w-full justify-start pl-6 text-sm font-normal relative group/btn",
+                                                    isActive
+                                                        ? "bg-slate-800 text-white"
+                                                        : "text-slate-400 hover:text-blue-400 hover:bg-slate-800"
                                                 )}
-                                            </div>
-                                            {service.name}
-                                        </Button>
-                                    </Link>
-                                )
-                            })
-                        )}
-                    </CollapsibleContent>
-                </Collapsible>
+                                                style={isActive ? {
+                                                    borderLeft: `12px solid ${service.primary_color || '#3b82f6'}`,
+                                                    backgroundColor: `${service.primary_color || '#3b82f6'}15`
+                                                } : {}}
+                                            >
+                                                <div className="relative mr-2">
+                                                    {shareMeta.count > 0 ? (
+                                                        hasGroup ? (
+                                                            <Users className="h-3.5 w-3.5 text-orange-400" />
+                                                        ) : (
+                                                            <User className="h-3.5 w-3.5 text-green-400" />
+                                                        )
+                                                    ) : (
+                                                        <Database
+                                                            className="h-3.5 w-3.5"
+                                                            style={{ opacity: 0.7 }}
+                                                        />
+                                                    )}
+                                                </div>
+                                                {service.name}
+                                            </Button>
+                                        </Link>
+                                    )
+                                })
+                            )}
+                        </CollapsibleContent>
+                    </Collapsible>
+                ) : (
+                    // Collapsed view - show only icons
+                    <div className="space-y-1 px-2">
+                        {sortedMyServices.map(service => {
+                            const isActive = activeService?.id === service.id
+                            const shareMeta = service.share_meta || { count: 0, types: [] }
+                            const hasGroup = shareMeta.types.includes('group')
+                            const hasUser = shareMeta.types.includes('user')
+
+                            return (
+                                <Link key={service.id} href={`/servicos/${service.slug}`}>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className={cn(
+                                            "w-10 h-10 justify-center px-0 text-sm rounded-lg mx-auto transition-all",
+                                            isActive
+                                                ? ""
+                                                : "text-slate-400 hover:text-blue-400 hover:bg-slate-800"
+                                        )}
+                                        style={isActive ? {
+                                            backgroundColor: service.primary_color || '#3b82f6',
+                                            color: getContrastColor(service.primary_color || '#3b82f6'),
+                                        } : {}}
+                                        title={service.name}
+                                    >
+                                        {shareMeta.count > 0 ? (
+                                            hasGroup ? (
+                                                <Users className="h-4 w-4" />
+                                            ) : (
+                                                <User className="h-4 w-4" />
+                                            )
+                                        ) : (
+                                            <Database className="h-4 w-4" />
+                                        )}
+                                    </Button>
+                                </Link>
+                            )
+                        })}
+                    </div>
+                )}
 
                 {/* SHARED SERVICES */}
-                {(sortedSharedServices.length > 0) && (
+                {(sortedSharedServices.length > 0) && !isSidebarCollapsed && (
                     <Collapsible
                         id="sidebar-shared-services"
                         open={isOpenShared}
@@ -221,8 +309,8 @@ export function Sidebar() {
 
                                 // 2. Update Logic (Unified Red Dot)
                                 const lastViewedAt = lastViews[shared.id]
-                                // If never viewed or updated after last view -> Has update
-                                const hasUpdate = !lastViewedAt || ((shared as any).updated_at && new Date((shared as any).updated_at).getTime() > new Date(lastViewedAt).getTime())
+                                // If never viewed or updated after last view -> Has update (ONLY if lastViewedAt exists to avoid false positives on load)
+                                const hasUpdate = !!lastViewedAt && ((shared as any).updated_at && new Date((shared as any).updated_at).getTime() > new Date(lastViewedAt).getTime())
 
                                 const showRedDot = hasUnreadChat || hasUpdate
 
@@ -259,48 +347,106 @@ export function Sidebar() {
                     </Collapsible>
                 )}
 
-                {/* GLOBAL CHAT (NEW SECTION) */}
-                <div className="mt-4 px-4 py-2">
-                    <div className="h-[1px] bg-slate-800" />
-                </div>
+                {/* SHARED SERVICES - Collapsed View */}
+                {(sortedSharedServices.length > 0) && isSidebarCollapsed && (
+                    <>
+                        {/* Separator */}
+                        <div className="mt-4 px-2 py-2">
+                            <div className="h-[1px] bg-slate-800" />
+                        </div>
+                        <div className="space-y-1 px-2">
+                            {sortedSharedServices.map((shared: any) => {
+                                const isActive = activeService?.id === shared.id
+                                const isGroup = shared.shared_via?.type === 'group'
 
-                <Collapsible
-                    id="sidebar-chat"
-                    open={isOpenConversations}
-                    onOpenChange={setIsOpenConversations}
-                    className="space-y-1"
-                    data-tour-group="home"
-                    data-tour-title="Chat Global"
-                    data-tour-desc="Converse com sua equipe e tire dúvidas em tempo real."
-                    data-tour-order="4"
-                    data-tour-side="right"
-                >
-                    <div className="flex items-center justify-between px-2 py-1">
-                        <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 w-full justify-start p-0 text-xs font-semibold text-slate-500 hover:text-slate-300 hover:bg-transparent uppercase" suppressHydrationWarning>
-                                {isOpenConversations ? <ChevronDown className="mr-2 h-3 w-3" /> : <ChevronRight className="mr-2 h-3 w-3" />}
-                                Conversas
-                            </Button>
-                        </CollapsibleTrigger>
+                                return (
+                                    <Link key={shared.id} href={`/servicos/${shared.slug}`}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className={cn(
+                                                "w-10 h-10 justify-center px-0 text-sm rounded-lg mx-auto transition-all",
+                                                isActive
+                                                    ? ""
+                                                    : "text-slate-400 hover:text-blue-400 hover:bg-slate-800"
+                                            )}
+                                            style={isActive ? {
+                                                backgroundColor: shared.primary_color || '#3b82f6',
+                                                color: getContrastColor(shared.primary_color || '#3b82f6'),
+                                            } : {}}
+                                            title={shared.name}
+                                        >
+                                            {isGroup ? (
+                                                <Users className="h-4 w-4" />
+                                            ) : (
+                                                <User className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </Link>
+                                )
+                            })}
+                        </div>
+                    </>
+                )}
 
-                        <NewChatDialog>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-white hover:bg-slate-800 rounded-full" suppressHydrationWarning>
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </NewChatDialog>
+                {/* GLOBAL CHAT (COLLAPSED) */}
+                {isSidebarCollapsed && (
+                    <div className="mt-2 space-y-1">
+                        <div className="px-3 py-2">
+                            <div className="h-[1px] bg-slate-800" />
+                        </div>
+                        <GlobalChatList collapsed={true} />
                     </div>
-                    <CollapsibleContent className="space-y-1" suppressHydrationWarning>
-                        <GlobalChatList onSelect={() => { }} />
-                    </CollapsibleContent>
-                </Collapsible>
+                )}
+
+                {/* GLOBAL CHAT (NEW SECTION) */}
+                {!isSidebarCollapsed && (
+                    <>
+                        <div className="mt-4 px-4 py-2">
+                            <div className="h-[1px] bg-slate-800" />
+                        </div>
+
+                        <Collapsible
+                            id="sidebar-chat"
+                            open={isOpenConversations}
+                            onOpenChange={setIsOpenConversations}
+                            className="space-y-1"
+                            data-tour-group="home"
+                            data-tour-title="Chat Global"
+                            data-tour-desc="Converse com sua equipe e tire dúvidas em tempo real."
+                            data-tour-order="4"
+                            data-tour-side="right"
+                        >
+                            <div className="flex items-center justify-between px-2 py-1">
+                                <CollapsibleTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-6 w-full justify-start p-0 text-xs font-semibold text-slate-500 hover:text-slate-300 hover:bg-transparent uppercase" suppressHydrationWarning>
+                                        {isOpenConversations ? <ChevronDown className="mr-2 h-3 w-3" /> : <ChevronRight className="mr-2 h-3 w-3" />}
+                                        Conversas
+                                    </Button>
+                                </CollapsibleTrigger>
+
+                                <NewChatDialog>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-white hover:bg-slate-800 rounded-full" suppressHydrationWarning>
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </NewChatDialog>
+                            </div>
+                            <CollapsibleContent className="space-y-1" suppressHydrationWarning>
+                                <GlobalChatList onSelect={() => { }} />
+                            </CollapsibleContent>
+                        </Collapsible>
+                    </>
+                )}
             </div>
 
             {/* Footer */}
-            <div className="border-t border-slate-800 p-4 flex justify-between items-center">
-                <div className="text-xs text-slate-500">
-                    © 2026 GovManager
+            {!isSidebarCollapsed && (
+                <div className="border-t border-slate-800 p-4 flex justify-between items-center">
+                    <div className="text-xs text-slate-500">
+                        © 2026 GovManager
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Global Chat Balloon */}
             <ConversationBalloon
