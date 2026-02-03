@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, FileText, Settings, Database, Users, User, Share2, Plus, ChevronDown, ChevronRight, Inbox, Loader2, Upload, MessageSquare, ArrowLeft } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { GlobalChatList } from "@/components/chat/GlobalChatList"
 import { ConversationBalloon } from "@/components/chat/ConversationBalloon"
 import { NewChatDialog } from "@/components/chat/NewChatDialog"
@@ -37,9 +37,8 @@ export function Sidebar() {
     // Notifications logic removed (handled by Navbar)
     const sidebarRef = useRef<HTMLDivElement>(null)
 
-
-    const sortedMyServices = myServices || []
-    const sortedSharedServices = sharedServices || []
+    const sortedMyServices = useMemo(() => myServices || [], [myServices])
+    const sortedSharedServices = useMemo(() => sharedServices || [], [sharedServices])
     const isLoading = servicesLoading || groupsLoading
 
     return (
@@ -54,7 +53,15 @@ export function Sidebar() {
 
             {/* Content */}
             <div className="flex-1 overflow-auto py-4">
-                <nav id="sidebar-nav" className="space-y-1 px-2">
+                <nav
+                    id="sidebar-nav"
+                    className="space-y-1 px-2"
+                    data-tour-group="global"
+                    data-tour-title="Navegação Principal"
+                    data-tour-desc="Aqui você acessa o Dashboard, suas Planilhas e Configurações."
+                    data-tour-order="1"
+                    data-tour-side="right"
+                >
                     <Link href="/">
                         <Button
                             variant="ghost"
@@ -119,7 +126,15 @@ export function Sidebar() {
                             </Button>
                         </Link>
                     </div>
-                    <CollapsibleContent id="sidebar-my-services" className="space-y-1">
+                    <CollapsibleContent
+                        id="sidebar-my-services"
+                        className="space-y-1"
+                        data-tour-group="global"
+                        data-tour-title="Seus Aplicativos"
+                        data-tour-desc="Seus aplicativos aparecem aqui. <br/><br/><b>Legenda de Ícones:</b><br/>🏁 <b>Database:</b> Aplicativo padrão.<br/>🎨 <b>Tarja Colorida:</b> Identifica visualmente o app."
+                        data-tour-order="2"
+                        data-tour-side="right"
+                    >
                         {isLoading ? (
                             <div className="px-6 py-2">
                                 <Skeleton className="h-4 w-3/4 bg-slate-800" />
@@ -179,7 +194,17 @@ export function Sidebar() {
 
                 {/* SHARED SERVICES */}
                 {(sortedSharedServices.length > 0) && (
-                    <Collapsible id="sidebar-shared-services" open={isOpenShared} onOpenChange={setIsOpenShared} className="space-y-1 mt-4">
+                    <Collapsible
+                        id="sidebar-shared-services"
+                        open={isOpenShared}
+                        onOpenChange={setIsOpenShared}
+                        className="space-y-1 mt-4"
+                        data-tour-group="global"
+                        data-tour-title="Compartilhados com Você"
+                        data-tour-desc="Aqui ficam os apps de outros usuários. <br/><br/><b>Legenda de Ícones:</b><br/>👤 <b>1 Boneco (Verde):</b> Compartilhado diretamente com você.<br/>👥 <b>2 Bonecos (Laranja):</b> Compartilhado via Grupo de Acesso."
+                        data-tour-order="3"
+                        data-tour-side="right"
+                    >
                         <div className="flex items-center justify-between px-2 py-1">
                             <CollapsibleTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-6 w-full justify-start p-0 text-xs font-semibold text-slate-500 hover:text-slate-300 hover:bg-transparent uppercase" suppressHydrationWarning>
@@ -189,7 +214,7 @@ export function Sidebar() {
                             </CollapsibleTrigger>
                         </div>
                         <CollapsibleContent id="sidebar-shared-services" className="space-y-1">
-                            {sortedSharedServices.map((shared, i) => {
+                            {sortedSharedServices.map((shared: any, i: number) => {
                                 const isActive = activeService?.id === shared.id
                                 const isGroup = shared.shared_via?.type === 'group'
 

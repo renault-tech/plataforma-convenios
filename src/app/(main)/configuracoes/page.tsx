@@ -138,7 +138,14 @@ function ConfiguracoesContent() {
                             </div>
 
                             {/* Service Tabs (Inline with Title) */}
-                            <div className="flex flex-wrap items-center gap-2" id="settings-tabs">
+                            <div
+                                className="flex flex-wrap items-center gap-2"
+                                id="settings-tabs"
+                                data-tour-group="settings"
+                                data-tour-title="Seus Aplicativos"
+                                data-tour-desc="Navegue entre suas planilhas ou crie uma nova clicando em '+ Novo Serviço'."
+                                data-tour-order="1"
+                            >
                                 {services.map((service) => {
                                     const isActive = activeTab === service.id
                                     const textColor = isActive ? getContrastYIQ(service.primary_color) : undefined
@@ -182,6 +189,11 @@ function ConfiguracoesContent() {
                             className="gap-2"
                             onClick={() => setShowAccessControl(true)}
                             id="settings-access-control"
+                            data-tour-group="settings"
+                            data-tour-title="Controle de Acesso"
+                            data-tour-desc="Gerencie quem tem acesso e crie Grupos de Permissão avançados."
+                            data-tour-order="5"
+                            data-tour-align="end"
                         >
                             <Lock className="h-4 w-4" />
                             Controle de Acesso
@@ -449,7 +461,15 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
             {/* Main Split Layout */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left: Add/Edit Column Form */}
-                <Card className={editingIndex !== null ? "border-blue-500 ring-1 ring-blue-500" : ""} id="settings-column-form">
+                <Card
+                    className={editingIndex !== null ? "border-blue-500 ring-1 ring-blue-500" : ""}
+                    id="settings-column-form"
+                    data-tour-group="settings"
+                    data-tour-title="Criar Colunas"
+                    data-tour-desc="Defina os campos do seu formulário e tabela. Escolha entre Texto, Número, Data, Moeda, etc."
+                    data-tour-order="3"
+                    data-tour-side="right"
+                >
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="space-y-1">
                             <CardTitle>{editingIndex !== null ? "Editar Coluna" : "Adicionar Nova Coluna"}</CardTitle>
@@ -462,6 +482,12 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
                         {service && (
                             <div className="relative h-8 w-8 overflow-hidden rounded-full border-2 shadow-sm cursor-pointer transition-transform hover:scale-105"
                                 id="settings-color-trigger"
+                                data-tour-group="settings"
+                                data-tour-title="Identidade Visual"
+                                data-tour-desc="Clique na cor para alterá-la. Essa cor define a identidade do seu aplicativo em todo o sistema."
+                                data-tour-order="2"
+                                data-tour-side="right"
+                                data-tour-align="center"
                                 style={{
                                     backgroundColor: localColor,
                                     borderColor: getContrastYIQ(localColor) === 'black' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'
@@ -537,7 +563,15 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
                 </Card>
 
                 {/* Right: Active Columns List */}
-                <Card id="settings-active-columns">
+                <Card
+                    id="settings-active-columns"
+                    data-tour-group="settings"
+                    data-tour-title="Colunas Ativas"
+                    data-tour-desc="Gerencie as colunas existentes. Você pode editar ou excluir campos aqui."
+                    data-tour-order="4"
+                    data-tour-side="left"
+                    data-tour-align="start"
+                >
                     <CardHeader className="pb-3 border-b">
                         <div className="flex justify-between items-center">
                             <div>

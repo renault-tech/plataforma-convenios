@@ -1,31 +1,100 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useService } from "@/contexts/ServiceContext"
 import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { PlusCircle, LayoutDashboard, Bell, FileText, CheckCircle2 } from "lucide-react"
+import { PlusCircle, LayoutDashboard, Bell, FileText, CheckCircle2, DollarSign, BarChart3, Activity, Link as LinkIcon, Clock, ArrowRight, X, AlertOctagon, HelpCircle, CalendarOff } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
-import { useNotificationActions } from "@/hooks/useNotificationActions"
-
+import { useInbox, InboxProvider } from "@/contexts/InboxContext"
+import { GlobalCard } from "@/components/inbox/GlobalCard"
+import { CardDetailModal } from "@/components/inbox/CardDetailModal"
+import { DateTimeWidget } from "@/components/inbox/DateTimeWidget"
+import { WidgetGallery } from "@/components/inbox/WidgetGallery"
+import { AlertSettingsDialog } from "@/components/inbox/AlertSettingsDialog"
+import { DetailedDeadlineWidget } from "@/components/inbox/DetailedDeadlineWidget"
+import { ConsolidatedStatusWidget } from "@/components/inbox/ConsolidatedStatusWidget"
 import { toast } from "sonner"
 import { useSearchParams } from "next/navigation"
-import { Suspense } from "react" // Added Suspense import
+import { cn } from "@/lib/utils"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// --- Sortable Wrapper ---
+function SortableWidget({ id, children, onRemove, onClick }: { id: string, children: React.ReactNode, onRemove: () => void, onClick: () => void }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    touchAction: 'none'
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="relative group h-full cursor-move"
+    >
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:bg-red-50 hover:text-red-500 shadow-sm border border-slate-100 cursor-pointer"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+      <div
+        onClick={onClick}
+        className="h-full hover:shadow-md transition-shadow rounded-xl hover:ring-2 hover:ring-slate-200/50"
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   const { services } = useService()
 
-  // Decide which view to show
   if (services.length === 0) {
     return <HeroEmptyState />
   }
 
   return (
-    <Suspense fallback={null}>
-      <WelcomeHandler />
-      <InboxDashboard services={services} />
-    </Suspense>
+    <InboxProvider>
+      <Suspense fallback={null}>
+        <WelcomeHandler />
+        <InboxDashboard services={services} />
+      </Suspense>
+    </InboxProvider>
   )
 }
 
@@ -34,7 +103,6 @@ function WelcomeHandler() {
 
   useEffect(() => {
     if (searchParams.get("welcome") === "true") {
-      // Small delay to ensure UI is ready
       setTimeout(() => {
         toast.success("Cadastro confirmado com sucesso!", {
           description: "Seja bem-vindo(a) à plataforma. Comece criando seu primeiro serviço.",
@@ -91,11 +159,102 @@ function HeroEmptyState() {
 }
 
 function InboxDashboard({ services }: { services: any[] }) {
-  // This component replaces the old dashboard with a simpler "Inbox" feel
-  const [stats, setStats] = useState({ alerts: 0, pending: 0, updates: 0 })
   const [notifications, setNotifications] = useState<any[]>([])
+  const [selectedCard, setSelectedCard] = useState<string | null>(null)
+
+  // Widget Logic
+  const [showWidgetGallery, setShowWidgetGallery] = useState(false)
+  const [showAlertSettings, setShowAlertSettings] = useState(false)
   const supabase = createClient()
   const { activeService } = useService()
+
+  // Using useInbox context for metrics
+  const { metrics, isLoading: metricsLoading, userSettings } = useInbox()
+
+  // Persistence for user card preferences (order/visibility)
+  // Initialize with default order if nothing saved
+  const [cardOrder, setCardOrder] = useState<string[]>([])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const saved = localStorage.getItem('inbox-card-order')
+    if (saved) {
+      try { setCardOrder(JSON.parse(saved)) } catch { setCardOrder(['priority_high', 'alerts', 'no_deadline', 'pending', 'consolidated_progress']) }
+    } else {
+      setCardOrder(['priority_high', 'alerts', 'no_deadline', 'pending', 'consolidated_progress'])
+    }
+  }, [])
+
+  // Sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      setCardOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over?.id as string);
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+        localStorage.setItem('inbox-card-order', JSON.stringify(newOrder))
+        return newOrder;
+      });
+    }
+  }
+
+  // Helpers
+  const getContrastYIQ = (hexcolor: string) => {
+    if (!hexcolor) return 'black'
+    hexcolor = hexcolor.replace("#", "")
+    var r = parseInt(hexcolor.substr(0, 2), 16)
+    var g = parseInt(hexcolor.substr(2, 2), 16)
+    var b = parseInt(hexcolor.substr(4, 2), 16)
+    var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000
+    return (yiq >= 128) ? 'black' : 'white'
+  }
+
+  // Dynamic card data fetcher
+  const getCardItems = (cardId: string) => {
+    if (!cardId) return []
+    if (cardId === 'alerts') return metrics.detailedAlerts
+    if (cardId === 'values') return metrics.detailedValues
+    if (cardId === 'active') return metrics.detailedActive
+    if (cardId === 'updates') return metrics.detailedUpdates
+    if (cardId === 'priority_high') return []
+    if (cardId === 'no_deadline') return []
+    if (cardId === 'pending') return notifications
+
+    // Status Logic
+    if (cardId.startsWith('status-')) {
+      const statusName = cardId.replace('status-', '')
+      const group = metrics.statusGroups.find(g => g.status === statusName)
+      return group?.items || []
+    }
+    return []
+  }
+
+  // --- Handlers (Keep existing logic) ---
+  const handleAddWidget = (id: string) => {
+    if (!cardOrder.includes(id)) {
+      const newOrder = [...cardOrder, id]
+      setCardOrder(newOrder)
+      localStorage.setItem('inbox-card-order', JSON.stringify(newOrder))
+      toast.success("Widget adicionado à Caixa de Entrada!")
+    } else {
+      toast.info("Este widget já está na tela.")
+    }
+    setShowWidgetGallery(false)
+  }
+
+  // Delete widget
+  const handleRemoveWidget = (id: string) => {
+    const newOrder = cardOrder.filter(widgetId => widgetId !== id)
+    setCardOrder(newOrder)
+    localStorage.setItem('inbox-card-order', JSON.stringify(newOrder))
+    toast.success("Widget removido.")
+  }
 
   const fetchNotes = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -110,18 +269,11 @@ function InboxDashboard({ services }: { services: any[] }) {
 
     if (data) {
       setNotifications(data)
-      const pending = data.filter(n =>
-        !n.read_at && (n.type === 'service_share' || n.type === 'group_invite')
-      ).length
-
-      // Update stats
-      setStats(prev => ({ ...prev, pending }))
     }
   }
 
   useEffect(() => {
     fetchNotes()
-
     const channel = supabase
       .channel('dashboard-notifications')
       .on(
@@ -138,194 +290,342 @@ function InboxDashboard({ services }: { services: any[] }) {
 
   return (
     <div
-      className="space-y-8 w-full -m-8 p-8"
+      className="space-y-6 w-full -m-8 p-8 min-h-screen"
       style={{
         background: activeService ? `linear-gradient(to bottom, ${activeService.primary_color}15 0%, #ffffff 400px)` : undefined
       }}
     >
-      <div className="flex items-center justify-between">
+      <AlertSettingsDialog
+        open={showAlertSettings}
+        onOpenChange={setShowAlertSettings}
+      />
+
+      <CardDetailModal
+        open={!!selectedCard}
+        onOpenChange={(open) => !open && setSelectedCard(null)}
+        title={
+          selectedCard === 'alerts' ? 'Alertas e Prazos' :
+            selectedCard === 'values' ? 'Valores Totais' :
+              selectedCard === 'active' ? 'Itens Ativos' :
+                selectedCard === 'updates' ? 'Atualizações Recentes' :
+                  selectedCard === 'priority_high' ? 'Alta Prioridade' :
+                    selectedCard === 'no_deadline' ? 'Sem Prazo' :
+                      selectedCard === 'pending' ? 'Pendências' :
+                        selectedCard === 'consolidated_progress' ? 'Progresso Geral' :
+                          selectedCard?.startsWith('status-') ? `Status: ${selectedCard.replace('status-', '')}` :
+                            'Detalhes'
+        }
+        description={`Lista de itens de ${selectedCard?.startsWith('status-') ? selectedCard.replace('status-', '') :
+          'interesse'
+          }`}
+        items={getCardItems(selectedCard || '')}
+        type={selectedCard?.startsWith('status-') ? 'status_dynamic' : selectedCard === 'alerts' ? 'alerts' : selectedCard as any}
+      />
+
+      <WidgetGallery
+        open={showWidgetGallery}
+        onOpenChange={setShowWidgetGallery}
+        existingWidgets={cardOrder}
+        onAddWidget={handleAddWidget}
+      />
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Caixa de Entrada</h2>
-          <p className="text-slate-500">Resumo das suas atividades e alertas.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Caixa de Entrada</h1>
+          <p className="text-slate-500 mt-1">Visão geral de todas as suas pendências e prazos.</p>
         </div>
-        <div className="text-sm text-slate-500 font-medium bg-white px-3 py-1 rounded-full border shadow-sm">
-          {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-        </div>
+
+        <DateTimeWidget onAddWidget={() => setShowWidgetGallery(true)} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-        <Card className="bg-white border-blue-100 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-700">Alertas e Prazos</CardTitle>
-            <Bell className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{stats.alerts}</div>
-            <p className="text-xs text-slate-500">Vencimentos próximos</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-amber-100 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-700">Pendências</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{stats.pending}</div>
-            <p className="text-xs text-slate-500">Aguardando aprovação</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white border-emerald-100 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-700">Atualizações</CardTitle>
-            <LayoutDashboard className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{stats.updates}</div>
-            <p className="text-xs text-slate-500">Novos itens nesta semana</p>
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="grid gap-6 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-        {/* Main Content: Services */}
-        <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4 space-y-6">
-          <Card className="border-slate-200 shadow-sm">
-            <CardHeader>
-              <CardTitle>Meus Aplicativos</CardTitle>
-              <CardDescription>Acesso rápido aos seus serviços gerenciados.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {services.map(service => (
-                <Link key={service.id} href={`/servicos/${service.slug}`}>
-                  <div className="group flex items-center p-4 border rounded-xl hover:bg-slate-50 hover:border-blue-300 transition-all cursor-pointer bg-white h-full">
-                    <div
-                      className="h-10 w-10 rounded-lg flex items-center justify-center mr-4 text-white shadow-sm transition-transform"
-                      style={{ backgroundColor: service.primary_color || '#3b82f6' }}
-                    >
-                      <Database className="h-5 w-5" />
+      {/* 1. CARDS GRID (Top Row) */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={cardOrder} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {cardOrder.map(cardId => {
+              // Dynamic Status Cards
+              if (cardId.startsWith('status-')) {
+                const statusName = cardId.replace('status-', '')
+                const group = metrics.statusGroups.find(g => g.status === statusName)
+                if (!group) return null
+
+                return (
+                  <SortableWidget key={cardId} id={cardId} onClick={() => setSelectedCard(cardId)} onRemove={() => handleRemoveWidget(cardId)}>
+                    <div className="h-full relative">
+                      <GlobalCard
+                        title={group.status}
+                        value={group.count}
+                        description="Itens neste status"
+                        icon={CheckCircle2}
+                        iconColor="text-slate-600"
+                        borderColor="border-slate-200"
+                        isLoading={metricsLoading}
+                      />
+                      <div className="absolute top-4 right-8 w-3 h-3 rounded-full shadow-sm ring-2 ring-white" style={{ backgroundColor: group.color }} />
                     </div>
-                    <div>
-                      <h4 className="font-semibold text-slate-900 group-hover:text-blue-700">{service.name}</h4>
-                      <p className="text-xs text-slate-500">Gerenciar dados</p>
-                    </div>
+                  </SortableWidget>
+                )
+              }
+
+              // Normal Cards
+              switch (cardId) {
+                case 'alerts':
+                  // Calculate split
+                  const shortTerm = metrics.detailedAlerts.filter(i => i.isShortTerm).length
+                  const longTerm = metrics.detailedAlerts.length - shortTerm
+                  return (
+                    <SortableWidget key="alerts" id="alerts" onClick={() => setSelectedCard('alerts')} onRemove={() => handleRemoveWidget('alerts')}>
+                      <DetailedDeadlineWidget
+                        shortTermCount={shortTerm}
+                        shortTermDays={userSettings.alert_days_short}
+                        longTermCount={longTerm}
+                        longTermDays={userSettings.alert_days_long}
+                        onConfigure={() => setShowAlertSettings(true)}
+                      />
+                    </SortableWidget>
+                  )
+                case 'values':
+                  return (
+                    <SortableWidget key="values" id="values" onClick={() => setSelectedCard('values')} onRemove={() => handleRemoveWidget('values')}>
+                      <GlobalCard
+                        title="Valores Totais"
+                        value={metrics.totalValues}
+                        description="Soma de valores monetários"
+                        icon={DollarSign}
+                        iconColor="text-emerald-500"
+                        borderColor="border-emerald-100"
+                        isLoading={metricsLoading}
+                        formatValue={(val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val as number)}
+                      />
+                    </SortableWidget>
+                  )
+                case 'active':
+                  return (
+                    <SortableWidget key="active" id="active" onClick={() => setSelectedCard('active')} onRemove={() => handleRemoveWidget('active')}>
+                      <GlobalCard
+                        title="Status Ativos"
+                        value={metrics.activeStatus}
+                        description="Itens em execução"
+                        icon={CheckCircle2}
+                        iconColor="text-amber-500"
+                        borderColor="border-amber-100"
+                        isLoading={metricsLoading}
+                      />
+                    </SortableWidget>
+                  )
+                case 'updates':
+                  return (
+                    <SortableWidget key="updates" id="updates" onClick={() => setSelectedCard('updates')} onRemove={() => handleRemoveWidget('updates')}>
+                      <GlobalCard
+                        title="Atualizações"
+                        value={metrics.recentUpdates}
+                        description="Novos itens da semana"
+                        icon={LayoutDashboard}
+                        iconColor="text-purple-500"
+                        borderColor="border-purple-100"
+                        isLoading={metricsLoading}
+                      />
+                    </SortableWidget>
+                  )
+                case 'priority_high':
+                  return (
+                    <SortableWidget key="priority_high" id="priority_high" onClick={() => setSelectedCard('priority_high')} onRemove={() => handleRemoveWidget('priority_high')}>
+                      <GlobalCard
+                        title="Alta Prioridade"
+                        value={0} // Placeholder
+                        description="Itens urgentes"
+                        icon={AlertOctagon}
+                        iconColor="text-red-500"
+                        borderColor="border-red-100"
+                        isLoading={metricsLoading}
+                      />
+                    </SortableWidget>
+                  )
+                case 'no_deadline':
+                  return (
+                    <SortableWidget key="no_deadline" id="no_deadline" onClick={() => setSelectedCard('no_deadline')} onRemove={() => handleRemoveWidget('no_deadline')}>
+                      <GlobalCard
+                        title="Sem Prazo"
+                        value={0} // Placeholder
+                        description="Ativos sem data"
+                        icon={CalendarOff}
+                        iconColor="text-orange-500"
+                        borderColor="border-orange-100"
+                        isLoading={metricsLoading}
+                      />
+                    </SortableWidget>
+                  )
+                case 'pending':
+                  return (
+                    <SortableWidget key="pending" id="pending" onClick={() => setSelectedCard('pending')} onRemove={() => handleRemoveWidget('pending')}>
+                      <GlobalCard
+                        title="Pendências"
+                        value={notifications.length}
+                        description="Convites aguardando"
+                        icon={Bell}
+                        iconColor="text-indigo-500"
+                        borderColor="border-indigo-100"
+                        isLoading={metricsLoading}
+                      />
+                    </SortableWidget>
+                  )
+                case 'consolidated_progress':
+                  const completed = typeof metrics.completionRate?.find === 'function' ? metrics.completionRate.find(c => c.name === 'Concluídos')?.value || 0 : 0
+                  const ongoing = typeof metrics.completionRate?.find === 'function' ? metrics.completionRate.find(c => c.name === 'Em Andamento')?.value || 0 : 0
+                  const notStarted = typeof metrics.completionRate?.find === 'function' ? metrics.completionRate.find(c => c.name === 'Não Iniciados')?.value || 0 : 0
+                  const total = completed + ongoing + notStarted
+
+                  return (
+                    <SortableWidget key="consolidated_progress" id="consolidated_progress" onClick={() => setSelectedCard('consolidated_progress')} onRemove={() => handleRemoveWidget('consolidated_progress')}>
+                      <ConsolidatedStatusWidget
+                        done={completed}
+                        inProgress={ongoing}
+                        toDo={notStarted}
+                        total={total}
+                      />
+                    </SortableWidget>
+                  )
+                default: return null
+              }
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      {/* 2. LOWER SECTION (Shortcuts & Activity) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        {/* Shortcuts (Left/Center - 2/3 width) */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                <LinkIcon className="h-4 w-4 text-blue-500" />
+                Meus Serviços
+              </h3>
+              <Link href="/configuracoes?tab=servicos" className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+                Ver todos <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {services.slice(0, 6).map(service => (
+                <Link
+                  key={service.id}
+                  href={`/servicos/${service.slug}`}
+                  className="group flex flex-col p-4 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200 hover:shadow-md transition-all duration-200"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-2 h-8 rounded-full shadow-sm" style={{ backgroundColor: service.primary_color }} />
+                    <span className="font-medium text-slate-800 line-clamp-1 group-hover:text-blue-700 transition-colors">
+                      {service.name}
+                    </span>
+                  </div>
+                  <div className="mt-auto flex items-center justify-between text-xs text-slate-400 group-hover:text-blue-500">
+                    <span>Acessar</span>
+                    <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity -translate-x-2 group-hover:translate-x-0" />
                   </div>
                 </Link>
               ))}
-              <Link href="/configuracoes?tab=servicos">
-                <div className="flex items-center p-4 border border-dashed border-slate-300 rounded-xl hover:bg-white hover:border-blue-400 transition-all cursor-pointer bg-slate-50/50 justify-center text-slate-500 hover:text-blue-600 h-full">
-                  <PlusCircle className="h-5 w-5 mr-2" />
-                  <span className="font-medium">Novo Aplicativo</span>
-                </div>
+              <Link
+                href="/configuracoes?tab=servicos"
+                className="flex flex-col items-center justify-center p-4 rounded-xl border border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 transition-all text-slate-400 hover:text-blue-600 gap-2 cursor-pointer"
+              >
+                <PlusCircle className="h-6 w-6" />
+                <span className="font-medium text-sm">Novo Serviço</span>
               </Link>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
-        {/* Sidebar: Notifications */}
-        <div className="md:col-span-1 xl:col-span-1 2xl:col-span-1">
-          <DashboardNotifications notifications={notifications} onRefresh={fetchNotes} />
+        {/* Recent Activity (Right - 1/3 width) */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm h-full max-h-[500px] overflow-hidden flex flex-col">
+            <h3 className="font-semibold text-slate-900 mb-6 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-purple-500" />
+              Atividade Recente
+            </h3>
+
+            <div className="space-y-6 relative flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200">
+              {/* Timeline Line */}
+              <div className="absolute left-2.5 top-2 bottom-0 w-px bg-slate-100" />
+
+              {metrics.detailedUpdates.length === 0 ? (
+                <p className="text-sm text-slate-400 italic text-center py-10">
+                  Nenhuma atividade recente registrada.
+                </p>
+              ) : (
+                metrics.detailedUpdates.slice(0, 10).map((item, idx) => (
+                  <div key={idx} className="relative pl-8 group">
+                    <div className="absolute left-1 top-1.5 w-3 h-3 bg-white border-2 border-slate-300 rounded-full z-10 group-hover:border-blue-500 group-hover:scale-110 transition-all" />
+
+                    <div className="mb-1">
+                      <span className="text-sm font-medium text-slate-800 line-clamp-1 group-hover:text-blue-700 transition-colors">
+                        {item.title}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs">
+                      <span
+                        className="px-1.5 py-0.5 rounded-md bg-opacity-10 font-medium"
+                        style={{
+                          backgroundColor: `${item.service_color}15`,
+                          color: item.service_color
+                        }}
+                      >
+                        {item.service_name}
+                      </span>
+                      {/* Could add generic relative time here if available in item */}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
+
       </div>
-    </div>
+
+      <NotificationList />
+    </div >
   )
 }
 
-function DashboardNotifications({ notifications, onRefresh }: { notifications: any[], onRefresh: () => void }) {
-  const { handleAccept, handleDecline, deleteNotification } = useNotificationActions()
+function NotificationList() {
+  const { notifications, acceptNotification, declineNotification } = useInbox()
+  const safeNotifications = Array.isArray(notifications) ? notifications : []
 
-  const onAccept = async (n: any) => {
-    const success = await handleAccept(n)
-    if (success) onRefresh()
-  }
-
-  const onDecline = async (n: any) => {
-    const success = await handleDecline(n)
-    if (success) onRefresh()
-  }
-
-  // Pendencies are: Unread AND (service_share OR group_invite)
-  const pendingItems = notifications.filter(n =>
-    !n.read_at && (n.type === 'service_share' || n.type === 'group_invite')
-  )
-
-  // Recent History (everything else)
-  const recentHistory = notifications.filter(n =>
-    !pendingItems.includes(n)
-  ).slice(0, 5)
-
+  if (safeNotifications.length === 0) return null
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
-      {/* PENDÊNCIAS CARD - Only shows if there are pending items */}
-      {pendingItems.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/30 shadow-sm animate-in fade-in slide-in-from-right-4">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base text-amber-900 flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-amber-600" />
-              Pendências ({pendingItems.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pendingItems.map(n => (
-              <div key={n.id} className="bg-white p-3 rounded-lg border border-amber-100 shadow-sm">
-                <h4 className="font-semibold text-sm text-slate-900">{n.title}</h4>
-                <p className="text-xs text-slate-600 mb-3">{n.message}</p>
-                <div className="flex gap-2">
-                  <Button size="sm" className="h-7 text-xs flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => onAccept(n)}>
-                    Aceitar
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs flex-1 border-red-200 text-red-700 hover:bg-red-50" onClick={() => onDecline(n)}>
-                    Recusar
-                  </Button>
-                </div>
+    <div className="fixed bottom-4 right-4 z-50 w-80 space-y-2">
+      {safeNotifications.map(n => (
+        <div key={n.id} className="bg-white p-4 rounded-lg shadow-lg border border-slate-200 animate-in slide-in-from-right-full">
+          <div className="flex gap-3">
+            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <Bell className="h-4 w-4 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-sm text-slate-900">{n.title}</h4>
+              <p className="text-xs text-slate-600 mb-3">{n.message}</p>
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 text-xs flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => acceptNotification(n.id)}>
+                  Aceitar
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs flex-1 border-red-200 text-red-700 hover:bg-red-50" onClick={() => declineNotification(n.id)}>
+                  Recusar
+                </Button>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* RECENT NOTIFICATIONS - Normal list */}
-      <Card className="flex-1 border-slate-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Últimas Atualizações</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {recentHistory.length === 0 ? (
-            <p className="text-sm text-slate-500 italic">Nenhuma atualização recente.</p>
-          ) : (
-            recentHistory.map(note => (
-              <div key={note.id} className="flex gap-3 items-start pb-3 border-b last:border-0 last:pb-0">
-                <div className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${note.read_at ? 'bg-slate-300' : 'bg-blue-500'}`} />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium leading-none">{note.title}</p>
-                  <p className="text-xs text-slate-500 line-clamp-2">{note.message}</p>
-                </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
-  )
-}
-
-function Database(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <ellipse cx="12" cy="5" rx="9" ry="3" />
-      <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-      <path d="M3 12A9 3 0 0 0 21 12" />
-    </svg>
   )
 }

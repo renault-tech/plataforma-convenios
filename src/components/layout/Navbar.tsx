@@ -70,7 +70,14 @@ export function Navbar() {
             </div>
 
             <div className="flex items-center gap-2">
-                <div id="feedback-btn">
+                <div
+                    id="feedback-btn"
+                    data-tour-group="global"
+                    data-tour-title="Feedback e Sugestões"
+                    data-tour-desc="Encontrou um erro ou tem uma ideia? Nos envie diretamente por aqui!"
+                    data-tour-order="4"
+                    data-tour-align="center"
+                >
                     <FeedbackButton>
                         <Button variant="ghost" className="gap-2 text-slate-600">
                             <MessageSquarePlus className="h-5 w-5" />
@@ -78,10 +85,24 @@ export function Navbar() {
                         </Button>
                     </FeedbackButton>
                 </div>
-                <div id="notifications-trigger">
+                <div
+                    id="notifications-trigger"
+                    data-tour-group="global"
+                    data-tour-title="Notificações"
+                    data-tour-desc="Fique por dentro de convites e atualizações importantes."
+                    data-tour-order="5"
+                    data-tour-align="end"
+                >
                     <NotificationsPopover />
                 </div>
-                <div id="user-menu-trigger">
+                <div
+                    id="user-menu-trigger"
+                    data-tour-group="global"
+                    data-tour-title="Seu Perfil & Ajuda"
+                    data-tour-desc="Gerencie sua conta ou reveja este tour.<br/><br/><b>Dica de Ouro:</b> Em cada tela do sistema (Dashboard, Planilhas, Configurações), procure pelo botão <b>(?)</b> no topo para ver dicas exclusivas daquela área!"
+                    data-tour-order="6"
+                    data-tour-align="end"
+                >
                     <UserMenu />
                 </div>
             </div>

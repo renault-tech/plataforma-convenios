@@ -1,12 +1,16 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { useService } from "@/contexts/ServiceContext"
 import { ItemsTable } from "@/components/services/ItemsTable"
 import { ItemForm } from "@/components/services/ItemForm"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Pencil } from "lucide-react"
+import { Pencil, X, HelpCircle, PlusCircle, LayoutDashboard, Calendar as CalendarIcon, DollarSign, Activity, CheckCircle2 } from "lucide-react"
+import Link from "next/link"
+import { cn, getContrastYIQ } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 import { ShareServiceDialog } from "@/components/services/ShareServiceDialog"
 import { ServiceInfoDialog } from "@/components/services/ServiceInfoDialog"
@@ -15,8 +19,9 @@ import { ServiceChatSheet } from "@/components/chat/ServiceChatSheet"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { ServiceIcon } from "@/components/services/ServiceIcon"
 import { createItemAction, updateItemAction, deleteItemAction } from "@/app/actions/items"
-import { HelpCircle } from "lucide-react"
 import { useTutorial } from "@/hooks/useTutorial"
+
+// Widget Imports REMOVED as requested
 
 interface ServiceViewProps {
     initialService: any
@@ -24,7 +29,7 @@ interface ServiceViewProps {
 }
 
 export function ServiceView({ initialService, initialItems }: ServiceViewProps) {
-    const { activeService: contextActiveService, setActiveService, lastViews, updateService, markServiceViewed } = useService()
+    const { activeService: contextActiveService, setActiveService, lastViews, updateService, markServiceViewed, isLoading: serviceLoading, services } = useService()
     const { startTutorial } = useTutorial()
 
     // Use initialService for rendering immediately to avoid wait time and runtime errors
@@ -32,6 +37,12 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
 
     const [items, setItems] = useState<any[]>(initialItems)
     const supabase = createClient()
+    const searchParams = useSearchParams()
+    const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null)
+
+    // Alert Settings State REMOVED (No widgets)
+
+    // Dnd Sensors REMOVED (No widgets)
 
     // Verify mount state for hydration mismatch prevention for Radix Dialogs
     const [isMounted, setIsMounted] = useState(false)
@@ -47,9 +58,6 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
     }, [initialService, contextActiveService?.id, setActiveService])
 
     // Capture the initial last viewed time to persist highlights during the session
-    // This allows us to clear the global notification (Sidebar) immediately while keeping 
-    // the "New" highlights visible in the table until the user leaves.
-    // We use a ref to initialize it only once per mount
     const [initialLastViewed] = useState(() => activeService ? lastViews[activeService.id] : undefined)
 
     // Mark as viewed IMMEDIATELY on mount/entry/change
@@ -59,7 +67,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
         }
     }, [activeService?.id, markServiceViewed])
 
-    // Sync items from props (important for Server Actions revalidation)
+    // Sync items from props
     useEffect(() => {
         if (initialItems) {
             setItems(initialItems)
@@ -74,7 +82,26 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
         if (activeService) setTitleVal(activeService.name)
     }, [activeService])
 
-    const handleSaveTitle = async () => {
+    // Handle highlight from Inbox navigation
+    useEffect(() => {
+        const highlightId = searchParams.get('highlight')
+        if (highlightId) {
+            setHighlightedItemId(highlightId)
+
+            setTimeout(() => {
+                const element = document.querySelector(`[data-item-id="${highlightId}"]`)
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }
+            }, 500)
+
+            setTimeout(() => {
+                setHighlightedItemId(null)
+            }, 2500)
+        }
+    }, [searchParams])
+
+    const handleSaveTitle = useCallback(async () => {
         if (!activeService || !titleVal.trim()) return
         try {
             await updateService(activeService.id, { name: titleVal })
@@ -82,9 +109,9 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
         } catch (error) {
             console.error(error)
         }
-    }
+    }, [activeService, titleVal, updateService])
 
-    const uploadFiles = async (files: FileList): Promise<any[]> => {
+    const uploadFiles = useCallback(async (files: FileList): Promise<any[]> => {
         const uploaded: any[] = []
         for (let i = 0; i < files.length; i++) {
             const file = files[i]
@@ -106,14 +133,17 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                 .getPublicUrl(filePath)
 
             uploaded.push({
-                name: file.name,
+                type: 'file',
                 url: publicUrl,
-                type: file.type,
-                size: file.size
+                name: file.name,
+                size: file.size,
+                mime: file.type
             })
         }
         return uploaded
-    }
+    }, [activeService?.id, supabase.storage])
+
+    // --- Widget Logic Removed ---
 
     const handleCreateItem = async (formData: any) => {
         try {
@@ -151,7 +181,6 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                 ...newItem.data
             }
 
-            // Optimistic/Immediate update (Server revalidation will eventually consistent this)
             setItems(prev => [normalizedItem, ...prev])
             toast.success("Item adicionado!")
         } catch (error: any) {
@@ -165,7 +194,6 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
             const files = formData.files_upload as FileList
             const { files_upload, ...cleanData } = formData
 
-            // If new files are provided, upload them and MERGE with existing attachments
             let newAttachments: any[] = []
             if (files && files.length > 0) {
                 const uploadPromise = uploadFiles(files)
@@ -181,12 +209,10 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
             const existingAttachments = currentItem?.attachments || []
             const combinedAttachments = [...existingAttachments, ...newAttachments]
 
-            // Server Action
             const result = await updateItemAction(id, { ...cleanData, attachments: combinedAttachments })
 
             if (!result.success) throw new Error(result.error)
 
-            // Optimistic/Immediate update
             setItems(prev => prev.map(i => i.id === id ? { ...i, ...cleanData, attachments: combinedAttachments, updated_at: new Date().toISOString() } : i))
             toast.success("Item atualizado!")
             setEditingItem(null)
@@ -212,21 +238,65 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
 
     const [editingItem, setEditingItem] = useState<any | null>(null)
     const [itemToDelete, setItemToDelete] = useState<any | null>(null)
-
-    // Derived columns for creating item form
-    // We can use activeService.columns_config directly
     const columnsConfig = activeService?.columns_config || []
-
-    // Get last viewed time for highlighting "New" items from the CAPTURED initial state
     const lastViewedAt = initialLastViewed
 
     if (!activeService) return null
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-lg border shadow-sm">
-                <div className="flex-1">
-                    <div className="flex items-center gap-2" id="service-header-title">
+
+            {/* 0. NAVIGATION TABS (Settings Style Match) */}
+            <div className="flex flex-wrap items-center gap-3 pb-2 border-b border-transparent">
+                {services.map(service => {
+                    const isActive = service.id === activeService.id
+                    const textColor = isActive ? getContrastYIQ(service.primary_color) : undefined
+
+                    return (
+                        <Link key={service.id} href={`/servicos/${service.slug}`}>
+                            <Button
+                                variant={isActive ? "default" : "outline"}
+                                className={cn(
+                                    "h-9 px-4 rounded-full transition-colors font-medium",
+                                    isActive
+                                        ? "hover:opacity-90 border-transparent shadow-sm"
+                                        : "hover:bg-slate-100 text-slate-600 border-slate-200"
+                                )}
+                                style={isActive ? {
+                                    backgroundColor: service.primary_color,
+                                    color: textColor
+                                } : {}}
+                            >
+                                {service.name}
+                            </Button>
+                        </Link>
+                    )
+                })}
+                <Link href="/configuracoes?tab=new">
+                    <Button
+                        variant="secondary"
+                        className={cn(
+                            "h-9 px-4 rounded-full gap-2 border shadow-sm",
+                            "bg-white text-slate-900 hover:bg-slate-50 border-slate-200"
+                        )}
+                    >
+                        <PlusCircle className="h-4 w-4" />
+                        Novo Serviço
+                    </Button>
+                </Link>
+            </div>
+
+            {/* 1. HEADER & ACTIONS */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-lg border shadow-sm relative overflow-hidden">
+                <div className="flex-1 z-10">
+                    <div
+                        className="flex items-center gap-2"
+                        id="service-header-title"
+                        data-tour-group="service"
+                        data-tour-title="Aplicativo / Planilha"
+                        data-tour-desc="Este é o nome do seu aplicativo atual."
+                        data-tour-order="1"
+                    >
                         <ServiceIcon name={activeService.icon} className="h-8 w-8 text-blue-500" />
                         {isEditingTitle ? (
                             <div className="flex items-center gap-2">
@@ -267,10 +337,12 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                         )}
                     </p>
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                    {/* Render actions only on client to avoid Radix UI ID mismatches during hydration */}
+                <div className="flex gap-2 w-full sm:w-auto z-10">
+                    {/* Render actions only on client */}
                     {isMounted && (
                         <>
+                            {/* WIDGETS BUTTON REMOVED */}
+
                             <button
                                 onClick={() => startTutorial(true, 'service')}
                                 className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-full transition-colors"
@@ -283,11 +355,25 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                                 <ServiceInfoDialog service={activeService} />
                             </div>
 
-                            <div id="service-share-btn">
+                            <div
+                                id="service-share-btn"
+                                data-tour-group="service"
+                                data-tour-title="Compartilhar"
+                                data-tour-desc="Convide outros usuários."
+                                data-tour-order="5"
+                                data-tour-align="end"
+                            >
                                 <ShareServiceDialog service={activeService} />
                             </div>
 
-                            <div id="service-add-item-btn">
+                            <div
+                                id="service-add-item-btn"
+                                data-tour-group="service"
+                                data-tour-title="Novo Registro"
+                                data-tour-desc="Adicionar nova linha."
+                                data-tour-order="3"
+                                data-tour-align="end"
+                            >
                                 <ItemForm
                                     columns={columnsConfig}
                                     onSave={handleCreateItem}
@@ -303,9 +389,23 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                         </>
                     )}
                 </div>
+
+                {/* Background Decor - Optional */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 opacity-5 pointer-events-none">
+                    <ServiceIcon name={activeService.icon} className="h-64 w-64" />
+                </div>
             </div>
 
-            <div className="rounded-md border bg-white" id="items-table-container">
+            {/* 2. MAIN CONTENT (TABLE) */}
+            <div
+                className="rounded-md border bg-white"
+                id="items-table-container"
+                data-tour-group="service"
+                data-tour-title="Tabela Inteligente"
+                data-tour-desc="Esta tabela tem superpoderes: <br/>• <b>Clique na linha</b> para expandir e ver detalhes completos.<br/>• <b>Sinalização Azul:</b> Indica dados novos ou atualizados desde sua última visita.<br/>• <b>Cabeçalhos:</b> Clique para ordenar."
+                data-tour-order="4"
+                data-tour-align="center"
+            >
                 <ItemsTable
                     columns={columnsConfig}
                     data={items || []}
@@ -314,6 +414,8 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                     onStatusChange={(id, data) => handleUpdateItem(id, data)}
                     primaryColor={activeService.primary_color}
                     lastViewedAt={lastViewedAt}
+                    isLoading={serviceLoading}
+                    highlightedItemId={highlightedItemId}
                 />
             </div>
 
@@ -339,7 +441,15 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
             />
 
             {/* Floating Chat Trigger */}
-            <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-none" id="service-chat-trigger-container">
+            <div
+                className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-none"
+                id="service-chat-trigger-container"
+                data-tour-group="service"
+                data-tour-title="Chat da Planilha"
+                data-tour-desc="Bate-papo exclusivo desta planilha."
+                data-tour-order="2"
+                data-tour-align="end"
+            >
                 <div className="pointer-events-auto">
                     <ServiceChatTrigger
                         serviceId={activeService.id}

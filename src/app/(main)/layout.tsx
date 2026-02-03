@@ -5,6 +5,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { ServiceProvider } from "@/contexts/ServiceContext";
 import { GroupProvider } from "@/contexts/GroupContext";
 import { ChatProvider } from "@/contexts/ChatContext";
+import { InboxProvider } from "@/contexts/InboxContext";
 import { useStore } from "@/lib/store";
 
 function MainContentWrapper({ children }: { children: React.ReactNode }) {
@@ -34,15 +35,17 @@ export default function MainLayout({
         <ServiceProvider>
             <GroupProvider>
                 <ChatProvider>
-                    <div className="flex h-screen w-full overflow-hidden bg-slate-50 text-slate-900">
-                        <Sidebar />
-                        <div className="flex flex-1 flex-col min-w-0">
-                            <Navbar />
-                            <MainContentWrapper>
-                                {children}
-                            </MainContentWrapper>
+                    <InboxProvider>
+                        <div className="flex h-screen w-full overflow-hidden bg-slate-50 text-slate-900">
+                            <Sidebar />
+                            <div className="flex flex-1 flex-col min-w-0">
+                                <Navbar />
+                                <MainContentWrapper>
+                                    {children}
+                                </MainContentWrapper>
+                            </div>
                         </div>
-                    </div>
+                    </InboxProvider>
                 </ChatProvider>
             </GroupProvider>
         </ServiceProvider>

@@ -10,159 +10,35 @@ export function useTutorial() {
     const supabase = createClient()
     const [driverObj, setDriverObj] = useState<any>(null)
 
-    // Definitions
-    const globalSteps = [
-        {
-            element: "#sidebar-nav",
-            popover: {
-                title: "Navegação Principal",
-                description: "Aqui você acessa o Dashboard, suas Planilhas e Configurações.",
-                side: "right",
-                align: "start"
-            }
-        },
-        {
-            element: "#sidebar-my-services",
-            popover: {
-                title: "Seus Aplicativos",
-                description: "Todos os aplicativos e planilhas que você criou aparecerão aqui.",
-                side: "right",
-                align: "start"
-            }
-        },
-        {
-            element: "#sidebar-shared-services",
-            popover: {
-                title: "Compartilhados com Você",
-                description: "Aplicativos que outras pessoas compartilharam com você estarão listados nesta seção.",
-                side: "right",
-                align: "start"
-            }
-        },
-        {
-            element: "#feedback-btn",
-            popover: {
-                title: "Feedback e Sugestões",
-                description: "Encontrou um erro ou tem uma ideia? Nos envie diretamente por aqui!",
-                side: "bottom",
-                align: "center"
-            }
-        },
-        {
-            element: "#notifications-trigger",
-            popover: {
-                title: "Notificações",
-                description: "Fique por dentro de convites e atualizações importantes.",
-                side: "bottom",
-                align: "end"
-            }
-        },
-        {
-            element: "#user-menu-trigger",
-            popover: {
-                title: "Seu Perfil",
-                description: "Gerencie sua conta, saia do sistema ou acesse este tutorial novamente a qualquer momento.",
-                side: "bottom",
-                align: "end"
-            }
-        }
-    ]
+    const getDynamicSteps = (tourGroup: string) => {
+        // Query all elements with the matching tour group
+        const elements = document.querySelectorAll(`[data-tour-group='${tourGroup}']`)
 
-    const serviceSteps = [
-        {
-            element: "#service-header-title",
-            popover: {
-                title: "Aplicativo / Planilha",
-                description: "Este é o nome do seu aplicativo atual. Se você for o dono, pode clicar para editar o nome.",
-                side: "bottom",
-                align: "start"
-            }
-        },
-        {
-            element: "#service-chat-trigger-container",
-            popover: {
-                title: "Chat da Planilha",
-                description: "Este chat é EXTRA e EXCLUSIVO desta planilha. Use-o para discutir dados específicos deste contexto, separado do Chat Global.",
-                side: "right",
-                align: "end"
-            }
-        },
-        {
-            element: "#service-add-item-btn",
-            popover: {
-                title: "Novo Registro",
-                description: "Clique aqui para adicionar uma nova linha ou item à sua planilha.",
-                side: "bottom",
-                align: "end"
-            }
-        },
-        {
-            element: "#items-table-container",
-            popover: {
-                title: "Tabela Inteligente",
-                description: "Esta tabela tem superpoderes: <br/>• <b>Clique na linha</b> para expandir e ver detalhes completos.<br/>• <b>Sinalização Azul:</b> Indica dados novos ou atualizados desde sua última visita.<br/>• <b>Cabeçalhos:</b> Clique para ordenar.",
-                side: "top",
-                align: "center"
-            }
-        },
-        {
-            element: "#service-share-btn",
-            popover: {
-                title: "Compartilhar",
-                description: "Convide outros usuários para visualizar ou editar esta planilha com você.",
-                side: "bottom",
-                align: "end"
-            }
-        }
-    ]
+        // Convert NodeList to Array and map to driver.js steps
+        const steps = Array.from(elements)
+            .map((el) => {
+                const id = el.id ? `#${el.id}` : null
+                if (!id) return null // Driver.js needs an ID or class selector usually, effectively we need a selector.
 
-    const settingsSteps = [
-        {
-            element: "#settings-tabs",
-            popover: {
-                title: "Seus Aplicativos",
-                description: "Navegue entre suas planilhas ou crie uma nova clicando em '+ Novo Serviço'.",
-                side: "bottom",
-                align: "start"
-            }
-        },
-        {
-            element: "#settings-color-trigger",
-            popover: {
-                title: "Identidade Visual",
-                description: "Clique na cor para alterá-la. Essa cor define a identidade do seu aplicativo em todo o sistema.",
-                side: "right",
-                align: "center"
-            }
-        },
-        {
-            element: "#settings-column-form",
-            popover: {
-                title: "Criar Colunas",
-                description: "Defina os campos do seu formulário e tabela. Escolha entre Texto, Número, Data, Moeda, etc.",
-                side: "right",
-                align: "start"
-            }
-        },
-        {
-            element: "#settings-active-columns",
-            popover: {
-                title: "Colunas Ativas",
-                description: "Gerencie as colunas existentes. Você pode editar ou excluir campos aqui.",
-                side: "left",
-                align: "start"
-            }
-        },
-        {
-            element: "#settings-access-control",
-            popover: {
-                title: "Controle de Acesso",
-                description: "Gerencie quem tem acesso e crie Grupos de Permissão avançados.",
-                side: "bottom",
-                align: "end"
-            }
-        }
-    ]
+                // If element doesn't have ID, we might need to handle it, but for now enforcing IDs is safer for driver.js
+                // Alternatively, we could generate unique IDs if needed, but let's stick to existing IDs.
+
+                return {
+                    element: id,
+                    popover: {
+                        title: el.getAttribute('data-tour-title') || "",
+                        description: el.getAttribute('data-tour-desc') || "",
+                        side: el.getAttribute('data-tour-side') || "bottom",
+                        align: el.getAttribute('data-tour-align') || "start"
+                    },
+                    order: parseInt(el.getAttribute('data-tour-order') || "999")
+                }
+            })
+            .filter(step => step !== null)
+            .sort((a: any, b: any) => a.order - b.order)
+
+        return steps
+    }
 
     const initDriver = (steps: any[]) => {
         return driver({
@@ -172,7 +48,11 @@ export function useTutorial() {
             doneBtnText: "Concluir",
             nextBtnText: "Próximo",
             prevBtnText: "Anterior",
-            steps: steps
+            steps: steps,
+            // Customizing buttons to ensure Close/Skip is visible if possible, 
+            // though standard driver.js relies on 'allowClose' for the X button.
+            // We can add a custom 'onPopoverRendered' to inject a close button if strictly needed,
+            // but standard UI is usually sufficient. Let's rely on standard X.
         })
     }
 
@@ -183,10 +63,16 @@ export function useTutorial() {
         }
     }
 
-    const startTutorial = (force = false, type: TourType | 'settings' = 'global') => {
-        let steps = globalSteps
-        if (type === 'service') steps = serviceSteps
-        if (type === 'settings') steps = settingsSteps
+    const startTutorial = (force = false, type: TourType | 'settings' | 'dashboard' = 'global') => {
+        if (typeof document === 'undefined') return
+
+        const steps = getDynamicSteps(type)
+
+        if (steps.length === 0) {
+            // Fallback or just don't start if no steps found
+            console.warn(`No tutorial steps found for group: ${type}`)
+            return
+        }
 
         const drv = initDriver(steps)
 

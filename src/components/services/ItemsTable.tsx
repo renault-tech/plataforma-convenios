@@ -46,9 +46,13 @@ interface ItemsTableProps {
     onStatusChange?: (id: string, data: any) => Promise<void>
     primaryColor?: string
     lastViewedAt?: string
+    isLoading?: boolean
+    highlightedItemId?: string | null
 }
 
-export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, primaryColor, lastViewedAt }: ItemsTableProps) {
+import { Skeleton } from "@/components/ui/skeleton"
+
+export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, primaryColor, lastViewedAt, isLoading, highlightedItemId }: ItemsTableProps) {
     const [sorting, setSorting] = React.useState<SortingState>([])
 
     const tableColumns: ColumnDef<any>[] = React.useMemo(() => {
@@ -283,24 +287,39 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
                         ))}
                     </TableHeader>
                     <TableBody>
-                        {table.getRowModel().rows?.length ? (
+                        {isLoading ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <TableRow key={i}>
+                                    {columns.map((col, j) => (
+                                        <TableCell key={j}>
+                                            <Skeleton className="h-6 w-full" />
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))
+                        ) : table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row, index) => {
                                 // Let's use the same logic as Sidebar: !lastViewedAt || updated > lastViewedAt.
                                 const isNew = !lastViewedAt || (!!row.original.updated_at && new Date(row.original.updated_at).getTime() > new Date(lastViewedAt).getTime())
-
+                                const isHighlighted = highlightedItemId === row.original.id
 
                                 return (
                                     <React.Fragment key={row.id}>
                                         <TableRow
                                             data-state={row.getIsSelected() && "selected"}
+                                            data-item-id={row.original.id}
                                             className={cn(
                                                 "group transition-colors cursor-pointer hover:bg-slate-50",
-                                                isNew ? "bg-blue-100 hover:bg-blue-200" : ""
+                                                isNew ? "bg-blue-100 hover:bg-blue-200" : "",
+                                                isHighlighted && "animate-pulse bg-blue-300 hover:bg-blue-300"
                                             )}
                                             style={{
-                                                backgroundColor: isNew
-                                                    ? undefined
-                                                    : (index % 2 === 1 && primaryColor && !row.getIsExpanded()) ? `${primaryColor}08` : undefined
+                                                backgroundColor: isHighlighted
+                                                    ? '#93c5fd' // blue-300
+                                                    : isNew
+                                                        ? undefined
+                                                        : (index % 2 === 1 && primaryColor && !row.getIsExpanded()) ? `${primaryColor}08` : undefined,
+                                                transition: 'background-color 0.3s ease'
                                             }}
                                             onClick={() => row.toggleExpanded()}
                                         >
@@ -336,6 +355,6 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
                     </TableBody>
                 </Table>
             </TableScrollWrapper>
-        </div>
+        </div >
     )
 }
