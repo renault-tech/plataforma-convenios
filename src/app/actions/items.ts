@@ -37,12 +37,17 @@ export async function updateItemAction(itemId: string, itemData: any) {
 
     try {
         // First get service_id to touch it (or use subquery, but fetching is safe)
-        const { data: item } = await supabase.from('items').select('service_id').eq('id', itemId).single()
+        const { data: item } = await supabase.from('items').select('service_id, data').eq('id', itemId).single()
+
+        if (!item) throw new Error("Item not found")
+
+        // MERGE existing data with new data to prevent overwrite
+        const updatedData = { ...item.data, ...itemData }
 
         const { data, error } = await supabase
             .from('items')
             .update({
-                data: itemData
+                data: updatedData
             })
             .eq('id', itemId)
             .select()

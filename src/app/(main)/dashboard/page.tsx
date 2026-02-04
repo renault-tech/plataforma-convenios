@@ -12,6 +12,7 @@ import { ptBR } from "date-fns/locale"
 import { useTutorial } from "@/hooks/useTutorial"
 import { toast } from "sonner"
 import { getDashboardData } from "@/app/actions/dashboard"
+import { getStatusCategory } from "@/lib/constants/status"
 import {
     AreaChart,
     Area,
@@ -158,7 +159,7 @@ export default function DashboardPage() {
                 let currencyCol = cols.find((c: any) => c.type === 'currency' && /valor|total|preço|montante/i.test(c.label))?.id
                 if (!currencyCol) currencyCol = cols.find((c: any) => c.type === 'currency')?.id
 
-                let statusCol = cols.find((c: any) => c.type === 'status')?.id
+                let statusCol = cols.find((c: any) => c.type === 'status' || /status|situação|situacao|estado/i.test(c.label))?.id
 
                 // 2. Calculate
                 let totalVal = 0
@@ -500,10 +501,8 @@ export default function DashboardPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {cardOrder.map(cardId => {
                             if (cardId === 'consolidated_status') {
-                                // Calculate Statuses Detailed
-                                // Try to match by type 'status', then by label 'status'
-                                const statusCol = activeService?.columns_config?.find((c: any) => c.type === 'status')?.id
-                                    || activeService?.columns_config?.find((c: any) => c.label.toLowerCase() === 'status')?.id
+                                // Calculate Statuses Detailed using Helper
+                                const statusCol = activeService?.columns_config?.find((c: any) => c.type === 'status' || /status|situação|situacao|estado/i.test(c.label))?.id
                                 let total = items.length
 
                                 // Reset counts
@@ -518,12 +517,12 @@ export default function DashboardPage() {
 
                                 if (statusCol) {
                                     items.forEach(i => {
-                                        const s = String(i.data?.[statusCol] || '').toLowerCase()
-                                        if (s.includes('pendente')) counts.pendente++
-                                        else if (['execução', 'execucao'].some(k => s.includes(k))) counts.em_execucao++
-                                        else if (['andamento', 'analise', 'análise', 'aguardando'].some(k => s.includes(k))) counts.em_andamento++
-                                        else if (['concluído', 'concluido', 'aprovado', 'pago', 'entregue'].some(k => s.includes(k))) counts.concluido++
-                                        else if (['cancelado', 'rejeitado', 'suspenso'].some(k => s.includes(k))) counts.cancelado++
+                                        const s = String(i.data?.[statusCol] || '')
+                                        const cat = getStatusCategory(s)
+
+                                        if (cat === 'pending') counts.pendente++
+                                        else if (cat === 'active') counts.em_execucao++ // Maps 'active' category to 'em_execucao' bucket for this widget
+                                        else if (cat === 'done') counts.concluido++
                                         else counts.outros++
                                     })
                                 } else {
@@ -533,14 +532,16 @@ export default function DashboardPage() {
                                 const data = [
                                     { label: 'Pendente', count: counts.pendente, color: 'bg-yellow-500' },
                                     { label: 'Em Execução', count: counts.em_execucao, color: 'bg-blue-600' },
-                                    { label: 'Em Andamento', count: counts.em_andamento, color: 'bg-indigo-500' },
                                     { label: 'Concluído', count: counts.concluido, color: 'bg-emerald-500' },
-                                    { label: 'Cancelado', count: counts.cancelado, color: 'bg-slate-400' },
-                                    { label: 'Não Classificado', count: counts.outros, color: 'bg-slate-200' },
+                                    // { label: 'Cancelado', count: counts.cancelado, color: 'bg-slate-400' }, // Cancelled is mapped to done or other depending on logic, simplifying for this view
                                 ].filter(d => d.count > 0)
 
+                                if (counts.outros > 0) {
+                                    data.push({ label: 'Outros', count: counts.outros, color: 'bg-slate-200' })
+                                }
+
                                 return (
-                                    <SortableWidget key={cardId} id={cardId} onRemove={() => handleRemoveWidget(cardId)} onClick={() => setSelectedCard('consolidated_status')} className="col-span-1 md:col-span-2">
+                                    <SortableWidget key={cardId} id={cardId} onRemove={() => handleRemoveWidget(cardId)} onClick={() => setSelectedCard('consolidated_status')} className="col-span-1">
                                         <ConsolidatedStatusWidget
                                             data={data}
                                             total={total}

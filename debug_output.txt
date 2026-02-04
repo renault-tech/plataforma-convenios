@@ -1,0 +1,115 @@
+--- DEBUGGING SERVICES (Columns) ---
+Service: dqwd
+------------------------------------------------
+Service: para grupo ren 01
+ - Col: tyuyu | Type: text | ID: tyuyu
+ - Col: 56765 | Type: text | ID: 56765
+ - Col: trey | Type: text | ID: trey
+ - Col: rfrr | Type: text | ID: rfrr
+------------------------------------------------
+Service: Ren 01
+ - Col: dfge | Type: text | ID: dfge
+ - Col: ghkgh | Type: text | ID: ghkgh
+ - Col: ujtyu | Type: text | ID: ujtyu
+ - Col: dffg | Type: text | ID: dffg
+ - Col: Valor | Type: currency | ID: valor
+------------------------------------------------
+Service: ttwe
+ - Col: etwet | Type: text | ID: etwet
+ - Col: w22 | Type: currency | ID: w22
+ - Col: vencimento | Type: date | ID: vencimento
+------------------------------------------------
+Service: Contratos e aditivos
+ - Col: Número do contrato | Type: number | ID: numero_do_contrato
+ - Col: Tipo do contrato | Type: text | ID: tipo_do_contrato
+ - Col: Nome da empresa | Type: text | ID: nome_da_empresa
+ - Col: Objeto | Type: text | ID: objeto
+ - Col: Número do processo | Type: number | ID: numero_do_processo
+ - Col: Início da vigência | Type: date | ID: inicio_da_vigencia
+ - Col: Término da vigência | Type: date | ID: termino_da_vigencia
+ - Col: Vigente | Type: status | ID: vigente
+------------------------------------------------
+Service: dsgs
+ - Col: dfvsdsd | Type: text | ID: dfvsdsd
+ - Col: xz zx | Type: text | ID: xz_zx
+ - Col: zxcvzv | Type: date | ID: zxcvzv
+------------------------------------------------
+Service: Processos Licitatórios
+ - Col: Número do Processo | Type: number | ID: numero_do_processo
+ - Col: Modalidade | Type: text | ID: modalidade
+ - Col: Número da Modalidade | Type: number | ID: numero_da_modalidade
+ - Col: Registro de preços | Type: number | ID: registro_de_precos
+ - Col: Chamada Publica | Type: number | ID: chamada_publica
+ - Col: Adesão | Type: number | ID: adesao
+ - Col: Emissão | Type: date | ID: emissao
+ - Col: Secretaria | Type: text | ID: secretaria
+ - Col: Objeto | Type: text | ID: objeto
+ - Col: Valor estimado | Type: currency | ID: valor_estimado
+ - Col: Abertura prevista | Type: date | ID: abertura_prevista
+ - Col: Quantidade de itens e lotes | Type: number | ID: quantidade_de_itens_e_lotes
+ - Col: STATUS | Type: status | ID: status
+------------------------------------------------
+Service: Planejamento 2026
+ - Col: Demanda | Type: text | ID: demanda
+ - Col: Secretaria Resp. | Type: text | ID: secretaria_resp_
+ - Col: Situação | Type: status | ID: situacao
+ - Col: Resumo Situação Atual | Type: text | ID: resumo_situacao_atual
+ - Col: Obs | Type: text | ID: obs
+ - Col: Valor | Type: currency | ID: valor
+------------------------------------------------
+Service: SECRETARIA DE SERVIÇOS URBANOS 
+ - Col: FUNCIONÁRIOS | Type: text | ID: funcionarios
+ - Col: CARGO | Type: text | ID: cargo
+ - Col: SALÁRIO | Type: currency | ID: salario
+------------------------------------------------
+Service: leandra
+ - Col: adada | Type: text | ID: adada
+ - Col: wdawdwa | Type: text | ID: wdawdwa
+ - Col: valor | Type: currency | ID: valor
+------------------------------------------------
+Service: Controle de gastos
+ - Col: nome | Type: text | ID: nome
+ - Col: Endereço | Type: text | ID: endereco
+------------------------------------------------
+
+--- DEBUGGING ITEMS (Data Keys) ---
+Item (Service: 0c91a6a4-03eb-400c-9505-2cd0cad34d29)
+Data Keys: ["id","dffg","dfge","ghkgh","ujtyu","created_at","service_id","attachments"]
+Data Values: {"id":"729e6cdc-31cd-401c-813b-557a6c6118b7","dffg":"sdfw","dfge":"rtreree","ghkgh":"ddewe","ujtyu":"rgrefg","created_at":"2026-01-30T21:18:29.47388+00:00","service_id":"0c91a6a4-03eb-400c-9505-2cd0cad34d29","attachments":[]}
+------------------------------------------------
+Item (Service: 0c91a6a4-03eb-400c-9505-2cd0cad34d29)
+Data Keys: ["dffg","dfge","ghkgh","ujtyu"]
+Data Values: {"dffg":"444","dfge":"ert","ghkgh":"aaa","ujtyu":"ttt"}
+------------------------------------------------
+Item (Service: af8d91d1-7232-4253-a7f7-6183c5d3eee7)
+Data Keys: ["id","w22","etwet","created_at","service_id","vencimento"]
+Data Values: {"id":"292e10a6-ab48-4def-8262-c6363a828d4e","w22":3445,"etwet":"wrqr","created_at":"2026-01-29T11:31:04.096896+00:00","service_id":"af8d91d1-7232-4253-a7f7-6183c5d3eee7","vencimento":"2026-02-11"}
+------------------------------------------------
+Item (Service: 0c91a6a4-03eb-400c-9505-2cd0cad34d29)
+Data Keys: ["id","dffg","dfge","ghkgh","ujtyu","created_at","service_id","attachments"]
+Data Values: {"id":"6266a3eb-f065-4649-bd33-f791a946c7ed","dffg":"erty5","dfge":"assss","ghkgh":"retre","ujtyu":"ert","created_at":"2026-01-29T02:20:48.78276+00:00","service_id":"0c91a6a4-03eb-400c-9505-2cd0cad34d29","attachments":[]}
+------------------------------------------------
+Item (Service: 3ecc5288-35a0-4512-af07-0967de6ec8d4)
+Data Keys: ["id","xz_zx","zxcvzv","dfvsdsd","created_at","service_id"]
+Data Values: {"id":"850881fc-4e58-4771-9a51-f03d428a0b83","xz_zx":"","zxcvzv":"2026-02-12","dfvsdsd":"dsfsdgsd","created_at":"2026-01-30T18:46:02.0637+00:00","service_id":"3ecc5288-35a0-4512-af07-0967de6ec8d4"}
+------------------------------------------------
+Item (Service: 0c91a6a4-03eb-400c-9505-2cd0cad34d29)
+Data Keys: ["dffg","dfge","ghkgh","ujtyu"]
+Data Values: {"dffg":"eeee","dfge":"dcfghhdf","ghkgh":"dgfff","ujtyu":"edddd"}
+------------------------------------------------
+Item (Service: 0c91a6a4-03eb-400c-9505-2cd0cad34d29)
+Data Keys: ["id","dffg","dfge","ghkgh","ujtyu","valor","details","created_at","service_id","attachments"]
+Data Values: {"id":"8395125e-d2eb-4034-b3c5-b73e29b53a37","dffg":"eew","dfge":"sdfsdf","ghkgh":"sdfsd","ujtyu":"sdfs","valor":356677,"details":"s-- Create storage bucket for attachments\ninsert into storage.buckets (id, name, public)\nvalues ('attachments', 'attachments', true)\non conflict (id) do nothing;\n\n-- Set up security policies\ncreate policy \"Public Access\"\n  on storage.objects for select\n  using ( bucket_id = 'attachments' );\n\ncreate policy \"Authenticated users can upload\"\n  on storage.objects for insert\n  with check ( bucket_id = 'attachments' and auth.role() = 'authenticated' );\n\ncreate policy \"Users can update their own items\"\n  on storage.objects for update\n  using ( bucket_id = 'attachments' and auth.uid() = owner );\n\ncreate policy \"Users can delete their own items\"\n  on storage.objects for delete\n  using ( bucket_id = 'attachments' and auth.uid() = owner );","created_at":"2026-02-01T22:24:19.347748+00:00","service_id":"0c91a6a4-03eb-400c-9505-2cd0cad34d29","attachments":[{"url":"https://uvinrhvnwmvipjmpqlbi.supabase.co/storage/v1/object/public/attachments/0c91a6a4-03eb-400c-9505-2cd0cad34d29/1769984656198_unnamed_2-removebg-preview.png","name":"unnamed_2-removebg-preview.png","path":"0c91a6a4-03eb-400c-9505-2cd0cad34d29/1769984656198_unnamed_2-removebg-preview.png","size":136890,"type":"image/png"},{"url":"https://uvinrhvnwmvipjmpqlbi.supabase.co/storage/v1/object/public/attachments/0c91a6a4-03eb-400c-9505-2cd0cad34d29/1769984702483_SEMINARIONUT068SORODOLEITESLIDES1.pdf","name":"SEMINÁRIO NUT068 SORO DO LEITE SLIDES 1.pdf","path":"0c91a6a4-03eb-400c-9505-2cd0cad34d29/1769984702483_SEMINARIONUT068SORODOLEITESLIDES1.pdf","size":4512525,"type":"application/pdf"}]}
+------------------------------------------------
+Item (Service: 0c91a6a4-03eb-400c-9505-2cd0cad34d29)
+Data Keys: ["id","dffg","dfge","ghkgh","ujtyu","valor","details","created_at","service_id","attachments"]
+Data Values: {"id":"9aba4a6a-3160-4239-9acc-7e480cb29fd5","dffg":"cxcsd","dfge":"ccccc","ghkgh":"xcvdfdd","ujtyu":"dvczx","valor":467589,"details":"xcvxcvxcvxcvxcvxcvxcvxcvxcvxcvxcvxc","created_at":"2026-02-01T23:52:13.172151+00:00","service_id":"0c91a6a4-03eb-400c-9505-2cd0cad34d29","attachments":[{"url":"https://uvinrhvnwmvipjmpqlbi.supabase.co/storage/v1/object/public/attachments/0c91a6a4-03eb-400c-9505-2cd0cad34d29/1769989928240_Gemini_Generated_Image_7huoyv7huoyv7huo.png","name":"Gemini_Generated_Image_7huoyv7huoyv7huo.png","size":8711251,"type":"image/png"}]}
+------------------------------------------------
+Item (Service: 0c91a6a4-03eb-400c-9505-2cd0cad34d29)
+Data Keys: ["id","dffg","dfge","ghkgh","ujtyu","valor","created_at","service_id","attachments"]
+Data Values: {"id":"c3a47f7c-b0ee-40f0-a6d9-c02d8978bd56","dffg":"dfgrrrrr","dfge":"rfgdsff","ghkgh":"grrrr","ujtyu":"dfgwe","valor":23444,"created_at":"2026-01-30T21:18:46.380121+00:00","service_id":"0c91a6a4-03eb-400c-9505-2cd0cad34d29","attachments":[]}
+------------------------------------------------
+Item (Service: d5b63c8a-5006-4b00-8aa0-059a96d384f3)
+Data Keys: ["obs","valor","demanda","situacao","attachments","secretaria_resp_","resumo_situacao_atual"]
+Data Values: {"obs":"","valor":"","demanda":"Emprega Cataguases","situacao":"Pendente","attachments":[],"secretaria_resp_":"SEDEGI","resumo_situacao_atual":"Alinhamento com o Cataguases +"}
+------------------------------------------------

@@ -29,6 +29,7 @@ import { TableScrollWrapper } from "@/components/ui/TableScrollWrapper"
 import { StatusCell } from "@/components/services/StatusCell"
 import { ColumnHeaderBell } from "@/components/notifications/ColumnHeaderBell"
 import { NotificationConfigDialog } from "@/components/notifications/NotificationConfigDialog"
+import { getStatusColor } from "@/lib/constants/status"
 
 export type ColumnType = 'text' | 'number' | 'date' | 'currency' | 'status' | 'boolean'
 
@@ -125,9 +126,7 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
                         return (
                             <span className={cn(
                                 "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2",
-                                (value === "Ativo" || value === "Concluído") ? "bg-green-100 text-green-800" :
-                                    (value === "Pendente" || value === "Em Análise") ? "bg-yellow-100 text-yellow-800" :
-                                        "bg-slate-100 text-slate-800"
+                                getStatusColor(value as string)
                             )}>
                                 {value as React.ReactNode}
                             </span>

@@ -19,6 +19,7 @@ import { toast } from "sonner"
 import { useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useTutorial } from "@/hooks/useTutorial"
+import { getStatusCategory } from "@/lib/constants/status"
 import {
   DndContext,
   closestCenter,
@@ -528,10 +529,10 @@ function InboxDashboard({ services }: { services: any[] }) {
                   let other = 0
 
                   metrics.statusGroups.forEach(group => {
-                    const s = group.status.toLowerCase()
-                    if (['concluído', 'concluido', 'entregue', 'aprovado', 'pago'].some(k => s.includes(k))) done += group.count
-                    else if (['execução', 'andamento', 'execucao', 'vigente'].some(k => s.includes(k))) inProgress += group.count
-                    else if (['pendente', 'aguardando', 'analise', 'análise', 'atrasado', 'em análise', 'em analise'].some(k => s.includes(k))) toDo += group.count
+                    const cat = getStatusCategory(group.status)
+                    if (cat === 'done') done += group.count
+                    else if (cat === 'active') inProgress += group.count
+                    else if (cat === 'pending') toDo += group.count
                     else other += group.count
                   })
 
@@ -542,7 +543,7 @@ function InboxDashboard({ services }: { services: any[] }) {
                     { label: 'Pendente', count: toDo, color: 'bg-yellow-500' },
                     { label: 'Em Execução', count: inProgress, color: 'bg-blue-600' },
                     { label: 'Concluído', count: done, color: 'bg-emerald-500' },
-                    { label: 'Não Classificado', count: other, color: 'bg-slate-200' }
+                    { label: 'Outros', count: other, color: 'bg-slate-200' }
                   ].filter(d => d.count > 0)
 
                   return (

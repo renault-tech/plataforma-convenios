@@ -57,6 +57,13 @@ const PRESET_WIDGETS: PresetWidget[] = [
         type: 'preset'
     },
     {
+        key: 'consolidated_progress',
+        title: 'Progresso Geral',
+        description: 'Visão consolidada de status (Pendente, Em Execução, Concluído)',
+        icon: BarChart3,
+        type: 'preset'
+    },
+    {
         key: 'activity_feed',
         title: 'Atividade Recente',
         description: 'Timeline de eventos do sistema',

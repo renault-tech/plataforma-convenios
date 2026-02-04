@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { createClient } from "@/lib/supabase/client"
 import { useService } from "@/contexts/ServiceContext"
 import { parseISO, isAfter, isBefore, addDays, format } from "date-fns"
+import { getStatusCategory } from "@/lib/constants/status"
 
 // User settings
 type UserSettings = {
@@ -215,7 +216,7 @@ export function InboxProvider({ children }: { children: React.ReactNode }) {
                 // Find Columns
                 const dateCol = cols.find((c: any) => c.type === 'date' && /vencimento|prazo|limite/i.test(c.label))?.id
                 const currencyCol = cols.find((c: any) => c.type === 'currency')?.id
-                const statusCol = cols.find((c: any) => c.type === 'status')?.id
+                const statusCol = cols.find((c: any) => c.type === 'status' || /status|situação|situacao|estado/i.test(c.label))?.id
 
                 // 1. Alerts (Using User Settings)
                 if (dateCol && itemData[dateCol]) {
@@ -239,14 +240,16 @@ export function InboxProvider({ children }: { children: React.ReactNode }) {
                     if (value > 0) detailedValues.push(makeItemObj({ value }))
                 }
 
+                // ... inside refreshMetrics ...
+
                 // 3. Status Groups & Active Status
                 if (statusCol && itemData[statusCol]) {
                     const status = String(itemData[statusCol]).trim()
                     if (status) {
-                        const statusLower = status.toLowerCase()
+                        const category = getStatusCategory(status)
 
                         // Count "Active" generic metric
-                        if (['ativo', 'execução', 'andamento', 'vigente'].some(s => statusLower.includes(s))) {
+                        if (category === 'active') {
                             activeCount++
                             detailedActive.push(makeItemObj({ status }))
                         }
@@ -274,8 +277,8 @@ export function InboxProvider({ children }: { children: React.ReactNode }) {
 
                 // 5. Consolidated Pending (New Logic)
                 if (statusCol && itemData[statusCol]) {
-                    const status = String(itemData[statusCol]).trim().toLowerCase()
-                    if (['pendente', 'em análise', 'em analise', 'aguardando', 'atrasado'].some(s => status.includes(s))) {
+                    const status = String(itemData[statusCol]).trim()
+                    if (getStatusCategory(status) === 'pending') {
                         detailedPending.push(makeItemObj({ status: itemData[statusCol] }))
                     }
                 }

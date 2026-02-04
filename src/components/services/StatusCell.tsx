@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ChevronDown } from "lucide-react"
 
+import { MAIN_STATUS_OPTIONS, getStatusColor } from "@/lib/constants/status"
+
 interface StatusCellProps {
     value: string
     rowId: string
@@ -40,23 +42,18 @@ export function StatusCell({ value, rowId, columnId, options, onUpdate }: Status
         }
     }
 
-    const getStatusColor = (status: string) => {
-        const s = status.toLowerCase()
-        if (s === 'ativo' || s === 'concluído' || s === 'concluido' || s === 'aprovado' || s === 'pago') return "bg-green-100 text-green-800 hover:bg-green-200"
-        if (s === 'pendente' || s === 'em análise' || s === 'em analise' || s === 'aguardando') return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-        if (s === 'atrasado' || s === 'cancelado' || s === 'rejeitado' || s === 'vencido') return "bg-red-100 text-red-800 hover:bg-red-200"
-        if (s === 'em andamento' || s === 'andamento' || s === 'execução') return "bg-blue-100 text-blue-800 hover:bg-blue-200"
-        return "bg-slate-100 text-slate-800 hover:bg-slate-200"
-    }
-
     // Default options if none provided
     const statusOptions = options && options.length > 0
         ? options
-        : ["Pendente", "Em Andamento", "Concluído", "Cancelado"]
+        : MAIN_STATUS_OPTIONS
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger disabled={isLoading} className="focus:outline-none">
+            <DropdownMenuTrigger
+                disabled={isLoading}
+                className="focus:outline-none"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <span className={cn(
                     "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors cursor-pointer gap-1",
                     getStatusColor(currentValue),
@@ -66,11 +63,14 @@ export function StatusCell({ value, rowId, columnId, options, onUpdate }: Status
                     <ChevronDown className="h-3 w-3 opacity-50" />
                 </span>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
                 {statusOptions.map((option) => (
                     <DropdownMenuItem
                         key={option}
-                        onClick={() => handleSelect(option)}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            handleSelect(option)
+                        }}
                         className={cn("text-xs", option === currentValue && "bg-slate-100 font-medium")}
                     >
                         {option}
