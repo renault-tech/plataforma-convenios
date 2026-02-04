@@ -236,13 +236,26 @@ function InboxDashboard({ services }: { services: any[] }) {
     if (cardId === 'updates') return metrics.detailedUpdates
     if (cardId === 'priority_high') return []
     if (cardId === 'no_deadline') return []
-    if (cardId === 'pending') return notifications
+    if (cardId === 'pending') return metrics.detailedPending || [] // Use consolidated items
 
     // Status Logic
     if (cardId.startsWith('status-')) {
       const statusName = cardId.replace('status-', '')
       const group = metrics.statusGroups.find(g => g.status === statusName)
       return group?.items || []
+    }
+    if (cardId === 'consolidated_progress') {
+      const allItems = metrics.statusGroups.flatMap(g => g.items)
+      return allItems.sort((a, b) => {
+        const getScore = (item: any) => {
+          const s = (item.status || '').toLowerCase()
+          if (['pendente', 'aguardando', 'analise', 'análise'].some(k => s.includes(k))) return 3
+          if (['execução', 'andamento'].some(k => s.includes(k))) return 2
+          if (['concluído', 'concluido'].some(k => s.includes(k))) return 1
+          return 0
+        }
+        return getScore(b) - getScore(a)
+      })
     }
     return []
   }
@@ -498,8 +511,8 @@ function InboxDashboard({ services }: { services: any[] }) {
                     <SortableWidget key="pending" id="pending" onClick={() => setSelectedCard('pending')} onRemove={() => handleRemoveWidget('pending')}>
                       <GlobalCard
                         title="Pendências"
-                        value={notifications.length}
-                        description="Convites aguardando"
+                        value={metrics.detailedPending?.length || 0}
+                        description="Itens aguardando"
                         icon={Bell}
                         iconColor="text-indigo-500"
                         borderColor="border-indigo-100"
@@ -508,18 +521,35 @@ function InboxDashboard({ services }: { services: any[] }) {
                     </SortableWidget>
                   )
                 case 'consolidated_progress':
-                  const completed = typeof metrics.completionRate?.find === 'function' ? metrics.completionRate.find(c => c.name === 'Concluídos')?.value || 0 : 0
-                  const ongoing = typeof metrics.completionRate?.find === 'function' ? metrics.completionRate.find(c => c.name === 'Em Andamento')?.value || 0 : 0
-                  const notStarted = typeof metrics.completionRate?.find === 'function' ? metrics.completionRate.find(c => c.name === 'Não Iniciados')?.value || 0 : 0
-                  const total = completed + ongoing + notStarted
+                  // Calculate Consolidated Counts from Status Groups
+                  let done = 0
+                  let inProgress = 0
+                  let toDo = 0
+                  let other = 0
+
+                  metrics.statusGroups.forEach(group => {
+                    const s = group.status.toLowerCase()
+                    if (['concluído', 'concluido', 'entregue', 'aprovado', 'pago'].some(k => s.includes(k))) done += group.count
+                    else if (['execução', 'andamento', 'execucao', 'vigente'].some(k => s.includes(k))) inProgress += group.count
+                    else if (['pendente', 'aguardando', 'analise', 'análise', 'atrasado', 'em análise', 'em analise'].some(k => s.includes(k))) toDo += group.count
+                    else other += group.count
+                  })
+
+                  const totalCount = done + inProgress + toDo + other
+
+                  // Data for the widget visualization
+                  const statusData = [
+                    { label: 'Pendente', count: toDo, color: 'bg-yellow-500' },
+                    { label: 'Em Execução', count: inProgress, color: 'bg-blue-600' },
+                    { label: 'Concluído', count: done, color: 'bg-emerald-500' },
+                    { label: 'Não Classificado', count: other, color: 'bg-slate-200' }
+                  ].filter(d => d.count > 0)
 
                   return (
                     <SortableWidget key="consolidated_progress" id="consolidated_progress" onClick={() => setSelectedCard('consolidated_progress')} onRemove={() => handleRemoveWidget('consolidated_progress')}>
                       <ConsolidatedStatusWidget
-                        done={completed}
-                        inProgress={ongoing}
-                        toDo={notStarted}
-                        total={total}
+                        data={statusData}
+                        total={totalCount}
                       />
                     </SortableWidget>
                   )

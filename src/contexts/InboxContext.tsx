@@ -37,6 +37,7 @@ type GlobalMetrics = {
     detailedValues: any[]
     detailedActive: any[]
     detailedUpdates: any[]
+    detailedPending: any[] // New: Pending Items Consolidated
     // New: Dynamic Status Groups
     statusGroups: StatusGroup[]
     // Advanced metrics for charts
@@ -89,6 +90,7 @@ export function InboxProvider({ children }: { children: React.ReactNode }) {
         detailedValues: [],
         detailedActive: [],
         detailedUpdates: [],
+        detailedPending: [],
         statusGroups: [],
         statusDistribution: [],
         completionRate: [],
@@ -188,6 +190,7 @@ export function InboxProvider({ children }: { children: React.ReactNode }) {
             const detailedValues: any[] = []
             const detailedActive: any[] = []
             const detailedUpdates: any[] = []
+            const detailedPending: any[] = []
 
             // Dynamic Status Map
             const statusGroupsMap: Record<string, { count: number, items: any[], color: string }> = {}
@@ -268,6 +271,14 @@ export function InboxProvider({ children }: { children: React.ReactNode }) {
                     recentCount++
                     detailedUpdates.push(makeItemObj())
                 }
+
+                // 5. Consolidated Pending (New Logic)
+                if (statusCol && itemData[statusCol]) {
+                    const status = String(itemData[statusCol]).trim().toLowerCase()
+                    if (['pendente', 'em análise', 'em analise', 'aguardando', 'atrasado'].some(s => status.includes(s))) {
+                        detailedPending.push(makeItemObj({ status: itemData[statusCol] }))
+                    }
+                }
             })
 
             // Transform Status Map to Array
@@ -300,6 +311,7 @@ export function InboxProvider({ children }: { children: React.ReactNode }) {
                 detailedValues,
                 detailedActive,
                 detailedUpdates,
+                detailedPending,
                 statusGroups, // New!
                 statusDistribution,
                 completionRate: [], // Placeholder for now

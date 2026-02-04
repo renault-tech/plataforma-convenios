@@ -159,6 +159,7 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
                                                             <SelectItem value="Ativo">Ativo</SelectItem>
                                                             <SelectItem value="Pendente">Pendente</SelectItem>
                                                             <SelectItem value="Em Execução">Em Execução</SelectItem>
+                                                            <SelectItem value="Em Andamento">Em Andamento</SelectItem>
                                                             <SelectItem value="Concluído">Concluído</SelectItem>
                                                             <SelectItem value="Cancelado">Cancelado</SelectItem>
                                                         </SelectContent>

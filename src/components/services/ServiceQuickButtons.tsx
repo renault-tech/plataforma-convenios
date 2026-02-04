@@ -26,9 +26,9 @@ export function ServiceQuickButtons() {
                             key={service.id}
                             variant={isActive ? "default" : "outline"}
                             className={cn(
-                                "h-9 px-4 rounded-full transition-all font-medium border",
+                                "h-7 px-3 text-xs rounded-full transition-all font-medium border",
                                 isActive
-                                    ? "hover:opacity-90 border-transparent shadow-md"
+                                    ? "hover:opacity-90 border-transparent shadow-sm"
                                     : "bg-white hover:bg-slate-50 text-slate-600 border-slate-200 hover:border-blue-200"
                             )}
                             style={isActive ? {
@@ -45,7 +45,7 @@ export function ServiceQuickButtons() {
                 <Link href="/configuracoes?tab=servicos">
                     <Button
                         variant="outline"
-                        className="h-9 px-4 rounded-full gap-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 bg-white"
+                        className="h-7 px-3 text-xs rounded-full gap-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 bg-white"
                     >
                         <PlusCircle className="h-4 w-4" />
                         Novo Serviço

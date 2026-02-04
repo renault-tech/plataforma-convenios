@@ -1,17 +1,19 @@
 import { Card } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
+import { cn } from "@/lib/utils"
+
+interface StatusMetric {
+    label: string
+    count: number
+    color: string
+}
 
 interface ConsolidatedStatusWidgetProps {
-    done: number
-    inProgress: number
-    toDo: number
+    data: StatusMetric[]
     total: number
 }
 
-export function ConsolidatedStatusWidget({ done, inProgress, toDo, total }: ConsolidatedStatusWidgetProps) {
-    const donePercent = total > 0 ? (done / total) * 100 : 0
-    const progressPercent = total > 0 ? (inProgress / total) * 100 : 0
-    // The rest is To Do
+export function ConsolidatedStatusWidget({ data, total }: ConsolidatedStatusWidgetProps) {
+    const donePercent = total > 0 ? (data.find(d => d.label === 'Concluído')?.count || 0) / total * 100 : 0
 
     return (
         <Card className="p-6 border-slate-200 shadow-sm hover:shadow-md transition-all h-full bg-white flex flex-col justify-between group">
@@ -32,23 +34,27 @@ export function ConsolidatedStatusWidget({ done, inProgress, toDo, total }: Cons
                     </div>
 
                     <div className="flex h-3 w-full rounded-full overflow-hidden bg-slate-100">
-                        <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${donePercent}%` }} />
-                        <div className="bg-blue-500 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+                        {data.map((item, idx) => {
+                            if (item.count === 0) return null
+                            const percent = (item.count / total) * 100
+                            return (
+                                <div
+                                    key={idx}
+                                    className={cn("transition-all duration-500 h-full", item.color)}
+                                    style={{ width: `${percent}%` }}
+                                    title={`${item.label}: ${item.count}`}
+                                />
+                            )
+                        })}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 text-xs text-slate-600 mt-2">
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span>Concluído ({done})</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-blue-500" />
-                            <span>Andamento ({inProgress})</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-2 h-2 rounded-full bg-slate-300" />
-                            <span>A Fazer ({toDo})</span>
-                        </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-600 mt-2">
+                        {data.map((item, idx) => (
+                            <div className="flex items-center gap-1.5" key={idx}>
+                                <div className={cn("w-2 h-2 rounded-full", item.color)} />
+                                <span>{item.label} ({item.count})</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

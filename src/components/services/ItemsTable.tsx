@@ -233,6 +233,9 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
                                         size="icon"
                                         className="h-8 w-8 hover:bg-yellow-50 hover:text-yellow-600 text-slate-400"
                                         title="Definir Alerta"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                        }}
                                     >
                                         <Bell className="h-4 w-4" />
                                     </Button>

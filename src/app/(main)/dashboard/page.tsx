@@ -11,6 +11,7 @@ import { format, subMonths, isAfter, isBefore, addDays, parseISO } from "date-fn
 import { ptBR } from "date-fns/locale"
 import { useTutorial } from "@/hooks/useTutorial"
 import { toast } from "sonner"
+import { getDashboardData } from "@/app/actions/dashboard"
 import {
     AreaChart,
     Area,
@@ -28,6 +29,7 @@ import { DateTimeWidget } from "@/components/inbox/DateTimeWidget"
 import { AlertSettingsDialog } from "@/components/inbox/AlertSettingsDialog"
 import { CardDetailModal } from "@/components/inbox/CardDetailModal"
 import { ServiceQuickButtons } from "@/components/services/ServiceQuickButtons"
+import { ConsolidatedStatusWidget } from "@/components/inbox/ConsolidatedStatusWidget"
 
 // Drag and Drop
 import {
@@ -49,7 +51,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 // --- Sortable Wrapper ---
-function SortableWidget({ id, children, onRemove, onClick }: { id: string, children: React.ReactNode, onRemove: () => void, onClick?: () => void }) {
+function SortableWidget({ id, children, onRemove, onClick, className }: { id: string, children: React.ReactNode, onRemove: () => void, onClick?: () => void, className?: string }) {
     const {
         attributes,
         listeners,
@@ -72,7 +74,7 @@ function SortableWidget({ id, children, onRemove, onClick }: { id: string, child
             style={style}
             {...attributes}
             {...listeners}
-            className="relative group h-full cursor-move"
+            className={cn("relative group h-full cursor-move", className)}
         >
             <button
                 onClick={(e) => {
@@ -136,14 +138,15 @@ export default function DashboardPage() {
             setIsLoadingData(true)
 
             try {
-                const { data: items, error } = await supabase
-                    .from('items')
-                    .select('*')
-                    .eq('service_id', activeService.id)
-                    .order('created_at', { ascending: false })
+                // Server Action Fetch (Bypassing potential client-side RLS quirks)
+                const result = await getDashboardData(activeService.id)
 
-                if (error) throw error
-                if (!items) return
+                if (!result.success) {
+                    throw new Error(result.error)
+                }
+
+                const items = result.data || []
+                console.log("Dashboard items loaded (Server Action):", items.length)
 
                 setItems(items) // Store raw items for widgets
 
@@ -234,11 +237,18 @@ export default function DashboardPage() {
         // 'total' is specific to dashboard but we can use 'consolidated_progress' or map it
         // The user wants ORIGINAL cards. 
         // We will support: 'total', 'values', 'active', 'alerts'
-        const defaultWidgets = ['total', 'values', 'alerts', 'active']
+        const defaultWidgets = ['total', 'consolidated_status', 'values', 'alerts', 'active']
 
         try {
             const saved = localStorage.getItem(savedKey)
-            if (saved) setCardOrder(JSON.parse(saved))
+            if (saved) {
+                const parsed = JSON.parse(saved)
+                // Ensure consolidated_status is present (migration)
+                if (!parsed.includes('consolidated_status')) {
+                    parsed.splice(1, 0, 'consolidated_status') // Insert at 2nd position
+                }
+                setCardOrder(parsed)
+            }
             else setCardOrder(defaultWidgets)
         } catch {
             setCardOrder(defaultWidgets)
@@ -321,8 +331,28 @@ export default function DashboardPage() {
                     })
                 }
                 return items.filter(i => isAfter(new Date(i.created_at), monthAgo))
-            case 'total':
-                return items
+            case 'consolidated_status':
+            case 'total': // Fallback for total to behave broadly similar if needed, though strictly 'total' usually implies everything.
+                return items.sort((a, b) => {
+                    // Sort order: Pending patterns > Active > Done
+                    const sA = String(a.data?.[statusCol || ''] || '').toLowerCase()
+                    const sB = String(b.data?.[statusCol || ''] || '').toLowerCase()
+
+                    const score = (s: string) => {
+                        if (['pendente', 'aguardando', 'analise', 'análise'].some(k => s.includes(k))) return 3
+                        if (['execução', 'andamento'].some(k => s.includes(k))) return 2
+                        if (['concluído', 'concluido', 'entregue'].some(k => s.includes(k))) return 1
+                        return 0
+                    }
+                    return score(sB) - score(sA)
+                })
+            case 'pending':
+                const statusColPending = activeService?.columns_config?.find((c: any) => c.type === 'status')?.id
+                if (!statusColPending) return []
+                return items.filter(i => {
+                    const s = String(i.data?.[statusColPending] || '').toLowerCase()
+                    return ['pendente', 'em análise', 'em analise', 'aguardando', 'atrasado', 'em andamento'].some(k => s.includes(k))
+                })
             default: return []
         }
     }
@@ -357,9 +387,16 @@ export default function DashboardPage() {
             const count = items.filter(i => Object.values(i).some(v => v === statusName)).length
             conf = {
                 title: statusName,
-                icon: Activity, // Or dynamic icon if available
+                icon: Activity,
                 value: count,
                 sub: 'Itens com status'
+            }
+        } else if (id === 'pending') {
+            conf = {
+                title: 'Pendências',
+                icon: AlertCircle,
+                value: getWidgetItems('pending').length,
+                sub: 'Itens pendentes'
             }
         }
         return conf
@@ -390,8 +427,9 @@ export default function DashboardPage() {
                         selectedCard === 'values' ? 'Composição dos Valores' :
                             selectedCard === 'active' ? 'Itens em Execução' :
                                 selectedCard === 'updates' ? 'Atualizações da Semana' :
-                                    selectedCard === 'total' ? 'Todos os Registros' :
-                                        (getCardConfig(selectedCard || '').title || 'Detalhes')
+                                    selectedCard === 'consolidated_status' ? 'Progresso Geral' :
+                                        selectedCard === 'total' ? 'Todos os Registros' :
+                                            (getCardConfig(selectedCard || '').title || 'Detalhes')
                 }
                 description="Listagem completada dos itens relacionados."
                 items={getWidgetItems(selectedCard || '').map(i => ({
@@ -404,7 +442,7 @@ export default function DashboardPage() {
             />
 
             {/* Header */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div
                     id="dashboard-header"
                     data-tour-group="dashboard"
@@ -417,6 +455,12 @@ export default function DashboardPage() {
                         Visão analítica de <strong style={{ color: activeService.primary_color }}>{activeService.name}</strong>
                     </p>
                 </div>
+
+                {/* Service Quick Buttons (Relocated) */}
+                <div className="flex-1 w-full md:w-auto px-4 overflow-hidden">
+                    <ServiceQuickButtons />
+                </div>
+
                 <div
                     className="flex items-center gap-3"
                     data-tour-group="dashboard"
@@ -427,25 +471,24 @@ export default function DashboardPage() {
                     {/* The explicit Add Button is removed as requested */}
                     {/* Tutorial Help Button logic can be here if needed */}
                     <button
-                        onClick={() => startTutorial(true)}
-                        className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-full transition-colors hidden" // Hidden to reduce clutter since we have global help
-                        title="Tutorial"
+                        onClick={() => {
+                            if (confirm('Deseja restaurar o layout padrão do Dashboard?')) {
+                                const defaultWidgets = ['total', 'consolidated_status', 'values', 'alerts', 'active']
+                                setCardOrder(defaultWidgets)
+                                if (activeService?.id) localStorage.setItem(`dashboard-${activeService.id}-card-order`, JSON.stringify(defaultWidgets))
+                                toast.success("Layout restaurado!")
+                            }
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-full transition-colors"
+                        title="Restaurar Layout Padrão"
                     >
-                        <HelpCircle className="h-5 w-5" />
+                        <LayoutDashboard className="h-5 w-5" />
                     </button>
                     <DateTimeWidget onAddWidget={() => setShowWidgetGallery(true)} />
                 </div>
             </div>
 
-            {/* Service Quick Buttons */}
-            <div
-                data-tour-group="dashboard"
-                data-tour-title="Atalhos de Planilhas"
-                data-tour-desc="Acesse rapidamente suas planilhas através destes botões."
-                data-tour-order="3"
-            >
-                <ServiceQuickButtons />
-            </div>
+
 
             {/* Draggable Widgets Grid */}
             <DndContext
@@ -456,8 +499,57 @@ export default function DashboardPage() {
                 <SortableContext items={cardOrder} strategy={rectSortingStrategy}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {cardOrder.map(cardId => {
+                            if (cardId === 'consolidated_status') {
+                                // Calculate Statuses Detailed
+                                // Try to match by type 'status', then by label 'status'
+                                const statusCol = activeService?.columns_config?.find((c: any) => c.type === 'status')?.id
+                                    || activeService?.columns_config?.find((c: any) => c.label.toLowerCase() === 'status')?.id
+                                let total = items.length
+
+                                // Reset counts
+                                const counts = {
+                                    pendente: 0,
+                                    em_execucao: 0,
+                                    em_andamento: 0,
+                                    concluido: 0,
+                                    cancelado: 0,
+                                    outros: 0
+                                }
+
+                                if (statusCol) {
+                                    items.forEach(i => {
+                                        const s = String(i.data?.[statusCol] || '').toLowerCase()
+                                        if (s.includes('pendente')) counts.pendente++
+                                        else if (['execução', 'execucao'].some(k => s.includes(k))) counts.em_execucao++
+                                        else if (['andamento', 'analise', 'análise', 'aguardando'].some(k => s.includes(k))) counts.em_andamento++
+                                        else if (['concluído', 'concluido', 'aprovado', 'pago', 'entregue'].some(k => s.includes(k))) counts.concluido++
+                                        else if (['cancelado', 'rejeitado', 'suspenso'].some(k => s.includes(k))) counts.cancelado++
+                                        else counts.outros++
+                                    })
+                                } else {
+                                    counts.outros = total
+                                }
+
+                                const data = [
+                                    { label: 'Pendente', count: counts.pendente, color: 'bg-yellow-500' },
+                                    { label: 'Em Execução', count: counts.em_execucao, color: 'bg-blue-600' },
+                                    { label: 'Em Andamento', count: counts.em_andamento, color: 'bg-indigo-500' },
+                                    { label: 'Concluído', count: counts.concluido, color: 'bg-emerald-500' },
+                                    { label: 'Cancelado', count: counts.cancelado, color: 'bg-slate-400' },
+                                    { label: 'Não Classificado', count: counts.outros, color: 'bg-slate-200' },
+                                ].filter(d => d.count > 0)
+
+                                return (
+                                    <SortableWidget key={cardId} id={cardId} onRemove={() => handleRemoveWidget(cardId)} onClick={() => setSelectedCard('consolidated_status')} className="col-span-1 md:col-span-2">
+                                        <ConsolidatedStatusWidget
+                                            data={data}
+                                            total={total}
+                                        />
+                                    </SortableWidget>
+                                )
+                            }
                             // RENDER ORIGINAL CARDS
-                            if (cardId === 'total' || cardId === 'consolidated_progress') {
+                            if (cardId === 'total') {
                                 return (
                                     <SortableWidget key={cardId} id={cardId} onRemove={() => handleRemoveWidget(cardId)} onClick={() => setSelectedCard('total')}>
                                         <Card className="h-full">
