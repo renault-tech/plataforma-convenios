@@ -1,7 +1,58 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Activity } from "lucide-react"
+"use client"
+
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    rectSortingStrategy
+} from '@dnd-kit/sortable';
+import { useAdminDashboard } from "@/hooks/useAdminDashboard";
+import { AdminMetricWidget } from "./components/AdminMetricWidget";
+import { RecentUsersWidget } from "./components/RecentUsersWidget";
+import { ActivityFeedWidget } from "./components/ActivityFeedWidget";
+import { GrowthChartWidget } from "./components/charts/GrowthChartWidget";
+import { DistributionChartWidget } from "./components/charts/DistributionChartWidget";
+import { DashboardCard } from "./components/DashboardCard";
+import { AddWidgetDialog } from "./components/AddWidgetDialog";
+import { useEffect, useState } from 'react';
 
 export default function AdminDashboardPage() {
+    const { activeWidgets, updateWidgets } = useAdminDashboard()
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    function handleDragEnd(event: DragEndEvent) {
+        const { active, over } = event;
+
+        if (over && active.id !== over.id) {
+            const oldIndex = activeWidgets.findIndex((w) => w.id === active.id);
+            const newIndex = activeWidgets.findIndex((w) => w.id === over.id);
+
+            updateWidgets(arrayMove(activeWidgets, oldIndex, newIndex));
+        }
+    }
+
+    if (!mounted) return null
+
     return (
         <div className="space-y-6">
             <div>
@@ -9,37 +60,33 @@ export default function AdminDashboardPage() {
                 <p className="text-slate-500">Bem-vindo ao painel de administração da plataforma.</p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">--</div>
-                        <p className="text-xs text-muted-foreground">
-                            Usuários cadastrados
-                        </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Logs do Sistema</CardTitle>
-                        <Activity className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">--</div>
-                        <p className="text-xs text-muted-foreground">
-                            Ações registradas hoje
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                <SortableContext
+                    items={activeWidgets.map(w => w.id)}
+                    strategy={rectSortingStrategy}
+                >
+                    <div className="grid grid-cols-8 gap-4 auto-rows-min">
+                        {activeWidgets.map((widget) => (
+                            <DashboardCard key={widget.id} widget={widget}>
+                                {widget.type.startsWith('stats') && <AdminMetricWidget type={widget.type} />}
+                                {widget.type === 'recent_users' && <RecentUsersWidget />}
+                                {widget.type === 'activity_feed' && <ActivityFeedWidget />}
+                                {widget.type === 'chart_growth' && <GrowthChartWidget />}
+                                {widget.type === 'chart_distribution' && <DistributionChartWidget />}
+                            </DashboardCard>
+                        ))}
 
-            {/* Placeholder for future charts or lists */}
-            <div className="rounded-lg border border-dashed p-8 text-center text-slate-400">
-                Mais métricas em breve...
-            </div>
+                        {/* Add Button as last item, spanning 2 cols or filling gap */}
+                        <div className="col-span-2 row-span-1">
+                            <AddWidgetDialog />
+                        </div>
+                    </div>
+                </SortableContext>
+            </DndContext>
         </div>
     )
 }

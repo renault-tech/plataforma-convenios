@@ -88,10 +88,7 @@ export function Sidebar() {
                                 pathname === "/" ? "text-white" : "text-slate-400 hover:text-white hover:bg-slate-800"
                             )}
                             style={pathname === "/" ? (
-                                isSidebarCollapsed ? {
-                                    backgroundColor: activeService?.primary_color || '#3b82f6',
-                                    color: getContrastColor(activeService?.primary_color || '#3b82f6'),
-                                } : {
+                                isSidebarCollapsed ? {} : {
                                     backgroundColor: 'rgb(30 41 59)', // slate-800
                                 }
                             ) : {}}
