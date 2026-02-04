@@ -35,7 +35,11 @@ export function DashboardCard({ widget, children }: DashboardCardProps) {
         opacity: isDragging ? 0.5 : 1,
     }
 
-    const config = WIDGET_CONFIG[widget.type]
+    const config = WIDGET_CONFIG[widget.type] || {
+        title: "Widget Removido",
+        icon: X,
+        description: "Este widget não está mais disponível."
+    }
     const router = useRouter()
 
     const handleClick = () => {
@@ -87,7 +91,7 @@ export function DashboardCard({ widget, children }: DashboardCardProps) {
                     <X className="h-3 w-3" />
                 </Button>
             </CardHeader>
-            <div className="flex-1 overflow-auto pointer-events-none"> {/* Prevent children from blocking click */}
+            <div className="flex-1 overflow-auto"> {/* Interactive children */}
                 {children}
             </div>
         </Card>

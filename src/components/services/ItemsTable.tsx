@@ -22,11 +22,13 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { cn, getLegibleTextColor } from "@/lib/utils"
-import { Pencil, Trash2, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Paperclip, FileText, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
+import { Pencil, Trash2, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Paperclip, FileText, ArrowUpDown, ArrowUp, ArrowDown, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RowDetails } from "@/components/ui/RowDetails"
 import { TableScrollWrapper } from "@/components/ui/TableScrollWrapper"
 import { StatusCell } from "@/components/services/StatusCell"
+import { ColumnHeaderBell } from "@/components/notifications/ColumnHeaderBell"
+import { NotificationConfigDialog } from "@/components/notifications/NotificationConfigDialog"
 
 export type ColumnType = 'text' | 'number' | 'date' | 'currency' | 'status' | 'boolean'
 
@@ -41,6 +43,7 @@ export interface ColumnConfig {
 interface ItemsTableProps {
     columns: ColumnConfig[]
     data: any[]
+    serviceId?: string // Context
     onEdit?: (item: any) => void
     onDelete?: (item: any) => void
     onStatusChange?: (id: string, data: any) => Promise<void>
@@ -52,7 +55,7 @@ interface ItemsTableProps {
 
 import { Skeleton } from "@/components/ui/skeleton"
 
-export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, primaryColor, lastViewedAt, isLoading, highlightedItemId }: ItemsTableProps) {
+export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatusChange, primaryColor, lastViewedAt, isLoading, highlightedItemId }: ItemsTableProps) {
     const [sorting, setSorting] = React.useState<SortingState>([])
 
     const tableColumns: ColumnDef<any>[] = React.useMemo(() => {
@@ -63,20 +66,25 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
             accessorKey: col.id,
             header: ({ column }) => {
                 return (
-                    <Button
-                        variant="ghost"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                        className={`-ml-4 h-8 data-[state=open]:bg-accent hover:bg-slate-100/50 ${index === 0 ? 'justify-start pl-[64px]' : 'justify-center w-full'}`}
-                    >
-                        {col.label}
-                        {column.getIsSorted() === "asc" ? (
-                            <ArrowUp className="ml-2 h-3 w-3" />
-                        ) : column.getIsSorted() === "desc" ? (
-                            <ArrowDown className="ml-2 h-3 w-3" />
-                        ) : (
-                            <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />
+                    <div className={cn("flex items-center", index === 0 ? "justify-start pl-[48px]" : "justify-center w-full")}>
+                        <Button
+                            variant="ghost"
+                            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                            className="h-8 data-[state=open]:bg-accent hover:bg-slate-100/50"
+                        >
+                            {col.label}
+                            {column.getIsSorted() === "asc" ? (
+                                <ArrowUp className="ml-2 h-3 w-3" />
+                            ) : column.getIsSorted() === "desc" ? (
+                                <ArrowDown className="ml-2 h-3 w-3" />
+                            ) : (
+                                <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />
+                            )}
+                        </Button>
+                        {(col.type === 'date' || col.type === 'status') && (
+                            <ColumnHeaderBell columnId={col.id} type={col.type} serviceId={serviceId} />
                         )}
-                    </Button>
+                    </div>
                 )
             },
             cell: ({ getValue, row }) => {
@@ -116,7 +124,7 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
                         }
                         return (
                             <span className={cn(
-                                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                                "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2",
                                 (value === "Ativo" || value === "Concluído") ? "bg-green-100 text-green-800" :
                                     (value === "Pendente" || value === "Em Análise") ? "bg-yellow-100 text-yellow-800" :
                                         "bg-slate-100 text-slate-800"
@@ -206,10 +214,29 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
                         }
                     }
 
+                    // Determine context for Row Alarm (Date if exists, otherwise Status, otherwise generic)
+                    const triggerType = dateColId ? 'date' : 'status'
+
                     return (
                         <div className="flex items-center justify-end">
                             {AlertIcon}
                             <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <NotificationConfigDialog
+                                    targetType="row"
+                                    targetId={row.original.id}
+                                    serviceId={serviceId}
+                                    triggerType={triggerType}
+                                    dateColumnId={dateColId}
+                                >
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 hover:bg-yellow-50 hover:text-yellow-600 text-slate-400"
+                                        title="Definir Alerta"
+                                    >
+                                        <Bell className="h-4 w-4" />
+                                    </Button>
+                                </NotificationConfigDialog>
                                 {onEdit && (
                                     <Button
                                         variant="ghost"
@@ -311,11 +338,11 @@ export function ItemsTable({ columns, data, onEdit, onDelete, onStatusChange, pr
                                             className={cn(
                                                 "group transition-colors cursor-pointer hover:bg-slate-50",
                                                 isNew ? "bg-blue-100 hover:bg-blue-200" : "",
-                                                isHighlighted && "animate-pulse bg-blue-300 hover:bg-blue-300"
+                                                isHighlighted && "animate-pulse bg-yellow-200 hover:bg-yellow-200"
                                             )}
                                             style={{
                                                 backgroundColor: isHighlighted
-                                                    ? '#93c5fd' // blue-300
+                                                    ? '#fef08a' // yellow-200
                                                     : isNew
                                                         ? undefined
                                                         : (index % 2 === 1 && primaryColor && !row.getIsExpanded()) ? `${primaryColor}08` : undefined,

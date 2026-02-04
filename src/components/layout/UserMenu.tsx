@@ -43,7 +43,28 @@ export function UserMenu() {
 
                 // Fetch profile only if we have a user
                 const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-                if (isMounted && profile) setProfile(profile)
+                if (isMounted && profile) {
+                    setProfile(profile)
+
+                    // Auto-Check Changelog
+                    const { data: latest } = await supabase
+                        .from('changelog')
+                        .select('created_at')
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .single()
+
+                    if (latest) {
+                        const lastViewed = new Date(profile.last_changelog_viewed || '2000-01-01')
+                        const latestDate = new Date(latest.created_at)
+
+                        // If new content exists (and not just created very recently by self?)
+                        // We use a small buffer or just strict equality check issues
+                        if (latestDate > lastViewed) {
+                            setShowChangelog(true)
+                        }
+                    }
+                }
 
             } catch (err) {
                 // Ignore errors
@@ -78,7 +99,16 @@ export function UserMenu() {
 
     return (
         <>
-            <ChangelogDialog open={showChangelog} onOpenChange={setShowChangelog} />
+            <ChangelogDialog
+                open={showChangelog}
+                onOpenChange={(open) => {
+                    setShowChangelog(open)
+                    if (!open && user) {
+                        // Mark as read when closing
+                        supabase.from('profiles').update({ last_changelog_viewed: new Date().toISOString() }).eq('id', user.id).then()
+                    }
+                }}
+            />
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-9 w-9 rounded-full focus:ring-0">
@@ -121,6 +151,7 @@ export function UserMenu() {
                                     <span>Administração</span>
                                 </DropdownMenuItem>
                             )}
+
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 cursor-pointer">
                                 <LogOut className="mr-2 h-4 w-4" />

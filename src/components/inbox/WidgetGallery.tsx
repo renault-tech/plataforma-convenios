@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Bell, DollarSign, CheckCircle2, LayoutDashboard, Plus, Sparkles, BarChart3, PieChart, TrendingUp, Activity, AlertOctagon, HelpCircle, CalendarOff } from "lucide-react"
+import { Bell, DollarSign, CheckCircle2, LayoutDashboard, Plus, Sparkles, BarChart3, PieChart, TrendingUp, Activity, AlertOctagon, HelpCircle, CalendarOff, Users, ShieldCheck } from "lucide-react"
 import { useInbox } from "@/contexts/InboxContext"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
@@ -22,59 +22,45 @@ interface PresetWidget {
 
 const PRESET_WIDGETS: PresetWidget[] = [
     {
-        key: 'alerts',
-        title: 'Alertas e Prazos',
-        description: 'Monitora vencimentos próximos (30/90 dias)',
+        key: 'alerts_widget',
+        title: 'Prazos e Alertas',
+        description: 'Contagem de alertas pendentes e vencidos',
         icon: Bell,
         type: 'preset'
     },
     {
-        key: 'values',
-        title: 'Valores Totais',
-        description: 'Soma total de colunas financeiras',
-        icon: DollarSign,
+        key: 'stats_users',
+        title: 'Total de Usuários',
+        description: 'Usuários cadastrados na plataforma',
+        icon: Users, // Need import
         type: 'preset'
     },
     {
-        key: 'active',
-        title: 'Status Ativos',
-        description: 'Itens em execução ou vigentes',
-        icon: CheckCircle2,
+        key: 'stats_services',
+        title: 'Serviços Ativos',
+        description: 'Convênios e serviços em operação',
+        icon: ShieldCheck, // Need import
         type: 'preset'
     },
     {
-        key: 'pending',
-        title: 'Pendências de Convite',
-        description: 'Convites e solicitações aguardando você',
+        key: 'chart_growth',
+        title: 'Crescimento',
+        description: 'Gráfico de novos usuários e serviços',
+        icon: TrendingUp,
+        type: 'preset'
+    },
+    {
+        key: 'chart_distribution',
+        title: 'Distribuição',
+        description: 'Tipos de usuários e serviços',
+        icon: PieChart, // Need import
+        type: 'preset'
+    },
+    {
+        key: 'activity_feed',
+        title: 'Atividade Recente',
+        description: 'Timeline de eventos do sistema',
         icon: Activity,
-        type: 'preset'
-    },
-    {
-        key: 'updates',
-        title: 'Atualizações',
-        description: 'Novos itens criados na última semana',
-        icon: LayoutDashboard,
-        type: 'preset'
-    },
-    {
-        key: 'priority_high',
-        title: 'Alta Prioridade',
-        description: 'Itens marcados como urgente ou crítico',
-        icon: AlertOctagon,
-        type: 'preset'
-    },
-    {
-        key: 'no_deadline',
-        title: 'Sem Prazo',
-        description: 'Itens ativos que não possuem data de vencimento',
-        icon: CalendarOff,
-        type: 'preset'
-    },
-    {
-        key: 'consolidated_progress',
-        title: 'Progresso Geral',
-        description: 'Barra de progresso consolidada de todas as planilhas',
-        icon: TrendingUp, // Importing TrendingUp if not present, otherwise use PieChart or BarChart3
         type: 'preset'
     }
 ]

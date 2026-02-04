@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-export type WidgetType = 'stats_users' | 'stats_services' | 'stats_errors' | 'stats_active_users' | 'activity_feed' | 'recent_users' | 'chart_growth' | 'chart_distribution'
+export type WidgetType = 'stats_users' | 'stats_services' | 'activity_feed' | 'recent_users' | 'chart_growth' | 'chart_distribution' | 'alerts_widget'
 
 export interface DashboardWidget {
     id: string
@@ -24,16 +24,14 @@ interface AdminDashboardState {
 const DEFAULT_WIDGETS: DashboardWidget[] = [
     { id: 'w1', type: 'stats_users', x: 0, y: 0, w: 2, h: 1 },
     { id: 'w2', type: 'stats_services', x: 2, y: 0, w: 2, h: 1 },
-    { id: 'w3', type: 'stats_errors', x: 4, y: 0, w: 2, h: 1 },
-    { id: 'w4', type: 'activity_feed', x: 6, y: 0, w: 2, h: 4 }, // Right column tall
+    { id: 'w4', type: 'activity_feed', x: 4, y: 0, w: 4, h: 4 }, // Right column tall, wider
     { id: 'w5', type: 'recent_users', x: 0, y: 1, w: 4, h: 2 },
-    { id: 'w6', type: 'chart_growth', x: 0, y: 2, w: 4, h: 2 },
-    { id: 'w7', type: 'chart_distribution', x: 4, y: 2, w: 2, h: 2 },
+    { id: 'w5', type: 'recent_users', x: 0, y: 1, w: 4, h: 2 },
 ]
 
 const ALL_WIDGETS: WidgetType[] = [
-    'stats_users', 'stats_services', 'stats_errors', 'stats_active_users',
-    'activity_feed', 'recent_users', 'chart_growth', 'chart_distribution'
+    'stats_users', 'stats_services',
+    'activity_feed', 'recent_users', 'chart_growth', 'chart_distribution', 'alerts_widget'
 ]
 
 export const useAdminDashboard = create<AdminDashboardState>()(

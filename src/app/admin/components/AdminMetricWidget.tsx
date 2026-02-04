@@ -20,14 +20,6 @@ export function AdminMetricWidget({ type }: { type: WidgetType }) {
                 const { count } = await supabase.from('services').select('*', { count: 'exact', head: true })
                 setValue(count || 0)
                 setSubtext("Serviços registrados")
-            } else if (type === 'stats_errors') {
-                // Mock for now or real query if logs table exists
-                setValue(0)
-                setSubtext("Sem erros recentes")
-            } else if (type === 'stats_active_users') {
-                // Mock
-                setValue(1)
-                setSubtext("Você está online")
             }
         }
         fetchData()

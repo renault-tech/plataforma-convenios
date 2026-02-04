@@ -24,7 +24,7 @@ export function DistributionChartWidget() {
             const counts: Record<string, number> = {}
             services.forEach(s => {
                 const owner = s.owner_id
-                counts[owner] = (counts[owner] || 0) + 1
+                if (owner) counts[owner] = (counts[owner] || 0) + 1
             })
 
             // Sort and take top 5

@@ -20,6 +20,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { ServiceIcon } from "@/components/services/ServiceIcon"
 import { createItemAction, updateItemAction, deleteItemAction } from "@/app/actions/items"
 import { useTutorial } from "@/hooks/useTutorial"
+import { ServiceAlertsButton } from "@/components/notifications/ServiceAlertsButton"
 
 // Widget Imports REMOVED as requested
 
@@ -325,6 +326,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                                 >
                                     <Pencil className="h-4 w-4" />
                                 </button>
+                                <ServiceAlertsButton serviceId={activeService.id} />
                             </div>
                         )}
                     </div>
@@ -403,6 +405,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                 <ItemsTable
                     columns={columnsConfig}
                     data={items || []}
+                    serviceId={activeService.id}
                     onEdit={setEditingItem}
                     onDelete={setItemToDelete}
                     onStatusChange={(id, data) => handleUpdateItem(id, data)}

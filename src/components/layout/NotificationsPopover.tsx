@@ -39,6 +39,7 @@ export function NotificationsPopover() {
         const { data } = await supabase
             .from("notifications")
             .select("*")
+            .neq('type', 'alert') // Exclude alerts (handled in separate inbox)
             .order("created_at", { ascending: false })
             .limit(20)
 

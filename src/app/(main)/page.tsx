@@ -12,6 +12,7 @@ import { CardDetailModal } from "@/components/inbox/CardDetailModal"
 import { DateTimeWidget } from "@/components/inbox/DateTimeWidget"
 import { WidgetGallery } from "@/components/inbox/WidgetGallery"
 import { AlertSettingsDialog } from "@/components/inbox/AlertSettingsDialog"
+import { AlertsWidget } from "@/components/inbox/AlertsWidget"
 import { DetailedDeadlineWidget } from "@/components/inbox/DetailedDeadlineWidget"
 import { ConsolidatedStatusWidget } from "@/components/inbox/ConsolidatedStatusWidget"
 import { toast } from "sonner"
@@ -400,6 +401,12 @@ function InboxDashboard({ services }: { services: any[] }) {
 
               // Normal Cards
               switch (cardId) {
+                case 'alerts_widget':
+                  return (
+                    <SortableWidget key="alerts_widget" id="alerts_widget" onClick={() => setSelectedCard(null)} onRemove={() => handleRemoveWidget('alerts_widget')}>
+                      <AlertsWidget />
+                    </SortableWidget>
+                  )
                 case 'alerts':
                   // Calculate split
                   const shortTerm = metrics.detailedAlerts.filter(i => i.isShortTerm).length

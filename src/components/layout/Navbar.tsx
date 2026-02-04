@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, MessageSquarePlus, HelpCircle, Sun, Moon } from "lucide-react"
+import { Bell, MessageSquarePlus, HelpCircle, Sun, Moon, AlarmClock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useStore } from "@/lib/store"
 import { UserMenu } from "./UserMenu"
@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { NotificationsPopover } from "./NotificationsPopover"
+import { NotificationsInboxDialog } from "@/components/notifications/NotificationsInboxDialog"
 import dynamic from "next/dynamic"
 import { useTutorial } from "@/hooks/useTutorial"
 
@@ -15,6 +16,7 @@ const FeedbackButton = dynamic(() => import('./FeedbackButton').then(mod => mod.
 
 export function Navbar() {
     const [count, setCount] = useState(0)
+    const [showAlerts, setShowAlerts] = useState(false)
     const supabase = createClient()
     const { startTutorial } = useTutorial()
 
@@ -69,6 +71,23 @@ export function Navbar() {
                     <span className="text-sm font-bold">+</span>
                 </Button>
             </div>
+
+            {/* Global Alarms Inbox */}
+            <Button
+                id="my-alerts-trigger"
+                variant="ghost"
+                size="sm"
+                className="mr-2 text-slate-600 hover:text-red-600 gap-2"
+                onClick={() => setShowAlerts(true)}
+                title="Meus Alertas Configurados"
+                data-tour-group="global"
+                data-tour-title="Central de Alertas"
+                data-tour-desc="Gerencie todos os seus alertas de vencimento e notificações em um só lugar. Configure avisos para qualquer planilha."
+                data-tour-order="3"
+            >
+                <AlarmClock className="h-4 w-4" />
+                <span className="hidden sm:inline font-medium">Meus Alertas</span>
+            </Button>
 
             {/* Dark Mode Toggle */}
             <button
@@ -131,6 +150,12 @@ export function Navbar() {
                     <UserMenu />
                 </div>
             </div>
+            <NotificationsInboxDialog
+                open={showAlerts}
+                onOpenChange={setShowAlerts}
+                filterType="alert"
+                customTitle="Meus Alarmes"
+            />
         </header>
     )
 }
