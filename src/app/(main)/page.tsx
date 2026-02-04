@@ -11,6 +11,7 @@ import { GlobalCard } from "@/components/inbox/GlobalCard"
 import { CardDetailModal } from "@/components/inbox/CardDetailModal"
 import { DateTimeWidget } from "@/components/inbox/DateTimeWidget"
 import { WidgetGallery } from "@/components/inbox/WidgetGallery"
+import { ExportDropdown } from "@/components/export/ExportDropdown"
 import { AlertSettingsDialog } from "@/components/inbox/AlertSettingsDialog"
 import { AlertsWidget } from "@/components/inbox/AlertsWidget"
 import { DetailedDeadlineWidget } from "@/components/inbox/DetailedDeadlineWidget"
@@ -369,7 +370,10 @@ function InboxDashboard({ services }: { services: any[] }) {
           <p className="text-slate-500 mt-1">Visão geral de todas as suas pendências e prazos.</p>
         </div>
 
-        <DateTimeWidget onAddWidget={() => setShowWidgetGallery(true)} />
+        <div className="flex items-center gap-2">
+          <ExportDropdown context="dashboard" data={metrics} />
+          <DateTimeWidget onAddWidget={() => setShowWidgetGallery(true)} />
+        </div>
       </div>
 
 
@@ -543,7 +547,7 @@ function InboxDashboard({ services }: { services: any[] }) {
                     { label: 'Pendente', count: toDo, color: 'bg-yellow-500' },
                     { label: 'Em Execução', count: inProgress, color: 'bg-blue-600' },
                     { label: 'Concluído', count: done, color: 'bg-emerald-500' },
-                    { label: 'Outros', count: other, color: 'bg-slate-200' }
+                    // { label: 'Outros', count: other, color: 'bg-slate-200' }
                   ].filter(d => d.count > 0)
 
                   return (

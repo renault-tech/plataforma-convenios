@@ -68,7 +68,6 @@ export type StatusCategory = 'done' | 'active' | 'pending' | 'error' | 'cancelle
 export const getStatusCategory = (status: string): StatusCategory => {
     const s = (status || '').toLowerCase().trim();
 
-    if (!s) return 'pending'; // Default to pending if empty
     if (['concluído', 'concluido', 'entregue', 'aprovado', 'pago'].some(k => s.includes(k))) return 'done';
     if (['ativo', 'execução', 'execucao', 'vigente'].some(k => s.includes(k))) return 'active';
     if (['andamento'].some(k => s.includes(k))) return 'active'; // Map Andamento to Active category for grouping

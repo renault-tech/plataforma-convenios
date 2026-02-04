@@ -4,7 +4,7 @@ import { useAdmin } from "@/hooks/useAdmin"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Shield, Users, ArrowLeft, LayoutDashboard } from "lucide-react"
+import { Shield, Users, ArrowLeft, LayoutDashboard, MessageSquarePlus } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -40,6 +40,7 @@ export default function AdminLayout({
     const menuItems = [
         { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
         { href: "/admin/users", label: "Usuários", icon: Users },
+        { href: "/admin/feedback", label: "Feedback", icon: MessageSquarePlus },
     ]
 
     return (

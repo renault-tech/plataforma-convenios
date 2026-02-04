@@ -356,7 +356,7 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
 
                                             {/* Cells */}
                                             {row.getVisibleCells().map((cell) => (
-                                                <TableCell key={cell.id} className="align-top py-3">
+                                                <TableCell key={cell.id} className="align-middle py-3">
                                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                                 </TableCell>
                                             ))}

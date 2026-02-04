@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useAdmin } from "@/hooks/useAdmin"
+import { useAdminFeedback } from "@/hooks/useAdminFeedback"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -25,6 +26,7 @@ export function UserMenu() {
     const router = useRouter()
     const supabase = createClient()
     const { isAdmin } = useAdmin()
+    const { hasUnread } = useAdminFeedback()
 
     useEffect(() => {
         let isMounted = true;
@@ -118,6 +120,9 @@ export function UserMenu() {
                                 {initials}
                             </AvatarFallback>
                         </Avatar>
+                        {hasUnread && (
+                            <span className="absolute top-0 right-0 h-3 w-3 rounded-full bg-red-500 border-2 border-white pointer-events-none" />
+                        )}
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -149,6 +154,9 @@ export function UserMenu() {
                                 <DropdownMenuItem onClick={() => router.push("/admin")}>
                                     <Shield className="mr-2 h-4 w-4" />
                                     <span>Administração</span>
+                                    {hasUnread && (
+                                        <span className="ml-auto flex h-2 w-2 rounded-full bg-red-500" />
+                                    )}
                                 </DropdownMenuItem>
                             )}
 

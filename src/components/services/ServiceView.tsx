@@ -21,6 +21,7 @@ import { ServiceIcon } from "@/components/services/ServiceIcon"
 import { createItemAction, updateItemAction, deleteItemAction } from "@/app/actions/items"
 import { useTutorial } from "@/hooks/useTutorial"
 import { ServiceAlertsButton } from "@/components/notifications/ServiceAlertsButton"
+import { ExportDropdown } from "@/components/export/ExportDropdown"
 
 // Widget Imports REMOVED as requested
 
@@ -360,6 +361,15 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                                 data-tour-align="end"
                             >
                                 <ShareServiceDialog service={activeService} />
+                            </div>
+
+                            <div id="service-export-btn">
+                                <ExportDropdown
+                                    context="table"
+                                    data={items}
+                                    columns={activeService.columns_config}
+                                    serviceName={activeService.name}
+                                />
                             </div>
 
                             <div

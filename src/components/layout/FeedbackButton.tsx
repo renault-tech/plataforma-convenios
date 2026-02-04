@@ -16,25 +16,35 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
+import { submitFeedback } from "@/app/actions/feedback"
+import { usePathname } from "next/navigation"
+
 export function FeedbackButton({ children }: { children?: React.ReactNode }) {
     const [open, setOpen] = useState(false)
     const [feedback, setFeedback] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const pathname = usePathname()
 
     const handleSubmit = async () => {
         if (!feedback.trim()) return
 
         setIsSubmitting(true)
 
-        // Simulação de envio
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        const result = await submitFeedback({
+            message: feedback,
+            url: pathname,
+            type: 'general'
+        })
 
-        console.log("Feedback enviado:", feedback)
-        toast.success("Obrigado pelo seu feedback! Vamos analisar sua sugestão.")
+        if (result.error) {
+            toast.error(result.error)
+        } else {
+            toast.success("Obrigado pelo seu feedback! Vamos analisar sua sugestão.")
+            setFeedback("")
+            setOpen(false)
+        }
 
-        setFeedback("")
         setIsSubmitting(false)
-        setOpen(false)
     }
 
     return (

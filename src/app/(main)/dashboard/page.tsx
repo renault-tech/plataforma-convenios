@@ -27,6 +27,7 @@ import {
 // Widgets
 import { WidgetGallery } from "@/components/inbox/WidgetGallery"
 import { DateTimeWidget } from "@/components/inbox/DateTimeWidget"
+import { ExportDropdown } from "@/components/export/ExportDropdown"
 import { AlertSettingsDialog } from "@/components/inbox/AlertSettingsDialog"
 import { CardDetailModal } from "@/components/inbox/CardDetailModal"
 import { ServiceQuickButtons } from "@/components/services/ServiceQuickButtons"
@@ -485,6 +486,12 @@ export default function DashboardPage() {
                     >
                         <LayoutDashboard className="h-5 w-5" />
                     </button>
+                    <ExportDropdown
+                        context="dashboard"
+                        data={{ stats: dashboardData, items: items }}
+                        columns={activeService?.columns_config}
+                        serviceName={activeService?.name}
+                    />
                     <DateTimeWidget onAddWidget={() => setShowWidgetGallery(true)} />
                 </div>
             </div>
@@ -498,7 +505,7 @@ export default function DashboardPage() {
                 onDragEnd={handleDragEnd}
             >
                 <SortableContext items={cardOrder} strategy={rectSortingStrategy}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div id="dashboard-widgets" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {cardOrder.map(cardId => {
                             if (cardId === 'consolidated_status') {
                                 // Calculate Statuses Detailed using Helper
@@ -536,9 +543,9 @@ export default function DashboardPage() {
                                     // { label: 'Cancelado', count: counts.cancelado, color: 'bg-slate-400' }, // Cancelled is mapped to done or other depending on logic, simplifying for this view
                                 ].filter(d => d.count > 0)
 
-                                if (counts.outros > 0) {
-                                    data.push({ label: 'Outros', count: counts.outros, color: 'bg-slate-200' })
-                                }
+                                // if (counts.outros > 0) {
+                                //     data.push({ label: 'Outros', count: counts.outros, color: 'bg-slate-200' })
+                                // }
 
                                 return (
                                     <SortableWidget key={cardId} id={cardId} onRemove={() => handleRemoveWidget(cardId)} onClick={() => setSelectedCard('consolidated_status')} className="col-span-1">
