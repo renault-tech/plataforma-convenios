@@ -41,7 +41,7 @@ export async function createServiceFromImport(name: string, importData: any, col
                 name: name,
                 slug: slug,
                 owner_id: user.id,
-                color: color,
+                primary_color: color,
                 icon: icon
             })
             .select()

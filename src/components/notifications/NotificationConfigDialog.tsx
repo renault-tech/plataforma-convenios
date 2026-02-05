@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
+import { MAIN_STATUS_OPTIONS } from "@/lib/constants/status"
 
 interface NotificationConfigDialogProps {
     targetType: 'column' | 'row'
@@ -22,6 +23,7 @@ interface NotificationConfigDialogProps {
     children?: React.ReactNode
     open?: boolean
     onOpenChange?: (open: boolean) => void
+    statusOptions?: string[] // Available status options for this column
 }
 
 export function NotificationConfigDialog({
@@ -33,7 +35,8 @@ export function NotificationConfigDialog({
     icon,
     children,
     open,
-    onOpenChange
+    onOpenChange,
+    statusOptions
 }: NotificationConfigDialogProps) {
     const [selectedChannels, setSelectedChannels] = useState<string[]>(['app'])
     const [offsets, setOffsets] = useState<number[]>([-7]) // Default 7 days before
@@ -128,15 +131,7 @@ export function NotificationConfigDialog({
         <Dialog open={displayOpen} onOpenChange={handleOpenChange}>
             {children && (
                 <DialogTrigger asChild>
-                    <div
-                        suppressHydrationWarning
-                        onClick={(e) => {
-                            e.stopPropagation()
-                        }}
-                        className="inline-block cursor-pointer"
-                    >
-                        {children}
-                    </div>
+                    {children}
                 </DialogTrigger>
             )}
             <DialogContent className="sm:max-w-[425px]">
@@ -182,10 +177,11 @@ export function NotificationConfigDialog({
                                         <SelectValue placeholder="Selecione um status..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="Concluído">Concluído</SelectItem>
-                                        <SelectItem value="Pendente">Pendente</SelectItem>
-                                        <SelectItem value="Em Análise">Em Análise</SelectItem>
-                                        <SelectItem value="Atrasado">Atrasado</SelectItem>
+                                        {(statusOptions || MAIN_STATUS_OPTIONS).map((status) => (
+                                            <SelectItem key={status} value={status}>
+                                                {status}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>

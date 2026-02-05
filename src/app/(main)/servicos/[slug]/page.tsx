@@ -69,10 +69,6 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         ...item.data
     })) || []
 
-    console.log('DEBUG - First item:', JSON.stringify(initialItems[0], null, 2))
-    console.log('DEBUG - Service columns:', JSON.stringify(serviceColumns?.map(c => ({ name: c.name, id: c.id })), null, 2))
-
-
     return (
         <ServiceView
             initialService={service}

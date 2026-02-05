@@ -258,6 +258,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
         return activeService?.columns_config || []
     }, [activeService?.service_columns, activeService?.columns_config])
 
+
     const lastViewedAt = initialLastViewed
 
     if (!activeService) return null

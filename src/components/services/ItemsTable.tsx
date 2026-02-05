@@ -83,7 +83,12 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
                             )}
                         </Button>
                         {(col.type === 'date' || col.type === 'status') && (
-                            <ColumnHeaderBell columnId={col.id} type={col.type} serviceId={serviceId} />
+                            <ColumnHeaderBell
+                                columnId={col.id}
+                                type={col.type}
+                                serviceId={serviceId}
+                                statusOptions={col.type === 'status' ? col.options : undefined}
+                            />
                         )}
                     </div>
                 )

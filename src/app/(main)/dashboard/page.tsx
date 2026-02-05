@@ -472,20 +472,7 @@ export default function DashboardPage() {
                 >
                     {/* The explicit Add Button is removed as requested */}
                     {/* Tutorial Help Button logic can be here if needed */}
-                    <button
-                        onClick={() => {
-                            if (confirm('Deseja restaurar o layout padrão do Dashboard?')) {
-                                const defaultWidgets = ['total', 'consolidated_status', 'values', 'alerts', 'active']
-                                setCardOrder(defaultWidgets)
-                                if (activeService?.id) localStorage.setItem(`dashboard-${activeService.id}-card-order`, JSON.stringify(defaultWidgets))
-                                toast.success("Layout restaurado!")
-                            }
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 rounded-full transition-colors"
-                        title="Restaurar Layout Padrão"
-                    >
-                        <LayoutDashboard className="h-5 w-5" />
-                    </button>
+
                     <ExportDropdown
                         context="dashboard"
                         data={{ stats: dashboardData, items: items }}

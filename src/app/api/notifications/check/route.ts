@@ -19,20 +19,41 @@ export async function GET(request: Request) {
 
         const notificationsToSend: any[] = [];
 
+        // Pre-fetch primary columns for all services involved
+        const serviceIds = [...new Set(rules.map(r => r.service_id).filter(Boolean))];
+        let primaryColumnsMap: Record<string, string> = {};
+
+        if (serviceIds.length > 0) {
+            const { data: primaryCols } = await supabase
+                .from('service_columns')
+                .select('service_id, name')
+                .in('service_id', serviceIds)
+                .order('order', { ascending: true }); // Assume first column is identifier
+
+            if (primaryCols) {
+                // Keep only the first column found for each service
+                primaryCols.forEach(col => {
+                    if (!primaryColumnsMap[col.service_id]) {
+                        primaryColumnsMap[col.service_id] = col.name;
+                    }
+                });
+            }
+        }
+
         // 2. Process each rule
         for (const rule of rules) {
             const config = rule.trigger_config as { offset: number, column_id?: string };
             const offset = Number(config.offset || 0);
             const serviceName = rule.services?.name || "Geral";
+            const serviceId = rule.service_id;
 
             // Determine target items
             let itemsToCheck: any[] = [];
 
             if (rule.target_type === 'row') {
                 // Check specific item in 'items' table
-                // Join 'service' to get name if not in rule (though rule has service_id likely)
                 const { data: item } = await supabase
-                    .from('items') // CORRECT TABLE
+                    .from('items')
                     .select('*, services:service_id(name)')
                     .eq('id', rule.target_id)
                     .single();
@@ -47,34 +68,21 @@ export async function GET(request: Request) {
                         .eq('service_id', rule.service_id);
                     if (items) itemsToCheck = items;
                 } else {
-                    // Global column rule? Rare but possible.
                     const { data: items } = await supabase.from('items').select('*, services:service_id(name)');
                     if (items) itemsToCheck = items;
                 }
             }
 
             // 3. Check Condition
-            // Force Brazil Time logic (UTC-3) for "Today" to align with user expectation
             const now = new Date();
             const brazilNow = new Date(now.getTime() - (3 * 60 * 60 * 1000));
             const today = startOfDay(brazilNow);
 
             for (const item of itemsToCheck) {
-                // Configured column ID (e.g. 'vencimento') or default
-                // Item data is in 'data' column (JSONB) usually? 
-                // Wait, in Planilha Concept, 'items' table has 'data' jsonb column.
-                // OR columns are first-class?
-                // Based on ItemsTable.tsx, `row.original[colId]` is used.
-                // If it's `items` table, it likely has `data` column.
-                // Let's assume `item.data[colId]` OR `item[colId]` if promoted.
-                // Safe access: `item.data?.[colId] || item[colId]`
-
-                // Prioritize column_id from config (v2 rules), fallback to target_id (v1 column rules) or 'vencimento' (v1 row rules)
                 const colId = config.column_id || (rule.target_type === 'column' ? rule.target_id : 'vencimento');
                 const dateVal = item.data?.[colId] || item[colId];
 
                 if (dateVal) {
-                    // Robust Date Parsing (ISO or DD/MM/YYYY)
                     let itemDate;
                     if (dateVal.includes('/')) {
                         const [d, m, y] = dateVal.split('/');
@@ -82,21 +90,29 @@ export async function GET(request: Request) {
                     } else {
                         itemDate = startOfDay(parseISO(dateVal));
                     }
-                    if (isNaN(itemDate.getTime())) continue; // Skip invalid dates
+                    if (isNaN(itemDate.getTime())) continue;
+
                     const diff = differenceInDays(itemDate, today);
 
-                    // Logic: Difference matches the *absolute* offset.
-                    // e.g. Offset -7 (7 days before). Diff should be 7.
                     if (diff === Math.abs(offset)) {
-
                         const originName = item.services?.name || serviceName;
-                        const itemName = item.data?.nome || item.data?.objeto || item.id.substring(0, 8); // Try to get a readable name
+
+                        // Try to find the primary column value for this service
+                        const primaryCol = serviceId ? primaryColumnsMap[serviceId] : null;
+                        const identifier = (primaryCol && item.data?.[primaryCol])
+                            || item.data?.nome
+                            || item.data?.objeto
+                            || (Object.values(item.data || {})[0] as string) // Fallback to first value
+                            || item.id.substring(0, 8);
+
+                        // Ensure we use a clean string
+                        const cleanIdentifier = String(identifier).substring(0, 50);
 
                         notificationsToSend.push({
                             user_id: rule.user_id,
                             type: 'alert',
-                            title: `Alerta: ${originName}`, // Origin Identification
-                            message: `O item "${itemName}" vence em ${diff} dias.`,
+                            title: `Alerta: ${originName}`,
+                            message: `O item "${cleanIdentifier}" - Status: ${colId} vence em ${diff} dias.`,
                             link: `/servicos/${item.services?.slug || rule.service_id}?highlight=${item.id}`,
                             read: false
                         });

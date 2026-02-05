@@ -159,7 +159,14 @@ export function NotificationsInboxDialog({ children, open, onOpenChange, filterT
 
                                             <div className="flex items-center gap-2 mt-3 pt-2 border-t border-dashed border-slate-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                                 {item.link && (
-                                                    <Link href={item.link} onClick={() => markAsRead(item.id)} className="flex-1 sm:flex-none">
+                                                    <Link
+                                                        href={item.link}
+                                                        onClick={() => {
+                                                            markAsRead(item.id)
+                                                            handleOpenChange(false) // Close dialog to see highlighted row
+                                                        }}
+                                                        className="flex-1 sm:flex-none"
+                                                    >
                                                         <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5 w-full sm:w-auto bg-white hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">
                                                             Visualizar <ExternalLink className="h-3 w-3" />
                                                         </Button>
