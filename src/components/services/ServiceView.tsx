@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { useService } from "@/contexts/ServiceContext"
@@ -240,7 +241,23 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
 
     const [editingItem, setEditingItem] = useState<any | null>(null)
     const [itemToDelete, setItemToDelete] = useState<any | null>(null)
-    const columnsConfig = activeService?.columns_config || []
+
+    // Transform service_columns from DB into columns_config format for ItemsTable
+    const columnsConfig = React.useMemo(() => {
+        if (activeService?.service_columns && Array.isArray(activeService.service_columns)) {
+            return activeService.service_columns
+                .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+                .map((col: any) => ({
+                    id: col.name, // Use column name as ID (matches data keys in items)
+                    label: col.name,
+                    type: col.type as any,
+                    required: false
+                }))
+        }
+        // Fallback to columns_config if service_columns doesn't exist (legacy services)
+        return activeService?.columns_config || []
+    }, [activeService?.service_columns, activeService?.columns_config])
+
     const lastViewedAt = initialLastViewed
 
     if (!activeService) return null

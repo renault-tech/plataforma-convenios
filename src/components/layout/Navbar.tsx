@@ -12,6 +12,8 @@ import { NotificationsInboxDialog } from "@/components/notifications/Notificatio
 import dynamic from "next/dynamic"
 import { useTutorial } from "@/hooks/useTutorial"
 
+import { ImportButton } from "@/components/import/ImportButton"
+
 const FeedbackButton = dynamic(() => import('./FeedbackButton').then(mod => mod.FeedbackButton), { ssr: false })
 
 export function Navbar() {
@@ -71,6 +73,9 @@ export function Navbar() {
                     <span className="text-sm font-bold">+</span>
                 </Button>
             </div>
+
+            {/* Excel Import */}
+            <ImportButton className="mr-2" />
 
             {/* Global Alarms Inbox */}
             <Button

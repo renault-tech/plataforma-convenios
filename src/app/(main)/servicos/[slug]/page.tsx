@@ -41,6 +41,18 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         )
     }
 
+    // Fetch service_columns if they exist (for imported services)
+    const { data: serviceColumns } = await supabase
+        .from('service_columns')
+        .select('*')
+        .eq('service_id', service.id)
+        .order('order', { ascending: true })
+
+    // Attach columns to service object if they exist
+    if (serviceColumns && serviceColumns.length > 0) {
+        service.service_columns = serviceColumns
+    }
+
     // 2. Fetch Initial Items (Limited)
     // Fetch only necessary data for the table to avoid over-fetching
     const { data: itemsData, error: itemsError } = await supabase
@@ -56,6 +68,10 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         created_at: item.created_at,
         ...item.data
     })) || []
+
+    console.log('DEBUG - First item:', JSON.stringify(initialItems[0], null, 2))
+    console.log('DEBUG - Service columns:', JSON.stringify(serviceColumns?.map(c => ({ name: c.name, id: c.id })), null, 2))
+
 
     return (
         <ServiceView

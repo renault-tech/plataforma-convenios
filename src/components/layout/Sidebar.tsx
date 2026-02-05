@@ -67,7 +67,7 @@ export function Sidebar() {
             {/* Content */}
             <div className={cn(
                 "flex-1 py-4",
-                isSidebarCollapsed ? "overflow-hidden" : "overflow-auto"
+                isSidebarCollapsed ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden"
             )}>
                 <nav
                     id="sidebar-nav"
@@ -202,7 +202,7 @@ export function Sidebar() {
                                                 className={cn(
                                                     "w-full justify-start pl-6 text-sm font-normal relative group/btn",
                                                     isActive
-                                                        ? "bg-slate-800 text-white"
+                                                        ? "bg-slate-800 text-white hover:text-white"
                                                         : "text-slate-400 hover:text-blue-400 hover:bg-slate-800"
                                                 )}
                                                 style={isActive ? {
@@ -437,13 +437,15 @@ export function Sidebar() {
             </div>
 
             {/* Footer */}
-            {!isSidebarCollapsed && (
-                <div className="border-t border-slate-800 p-4 flex justify-between items-center">
-                    <div className="text-xs text-slate-500">
-                        © 2026 GovManager
+            {
+                !isSidebarCollapsed && (
+                    <div className="border-t border-slate-800 p-4 flex justify-between items-center">
+                        <div className="text-xs text-slate-500">
+                            © 2026 GovManager
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Global Chat Balloon */}
             <ConversationBalloon
@@ -451,6 +453,6 @@ export function Sidebar() {
                 onClose={() => closeChat()}
                 anchorRef={sidebarRef}
             />
-        </div>
+        </div >
     )
 }
