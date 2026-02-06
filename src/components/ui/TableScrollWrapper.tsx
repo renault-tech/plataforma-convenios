@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils"
 
 interface TableScrollWrapperProps extends React.HTMLAttributes<HTMLDivElement> {
     children: React.ReactNode
+    innerClassName?: string
+    hideScrollbar?: boolean
 }
 
-export function TableScrollWrapper({ children, className, ...props }: TableScrollWrapperProps) {
+export function TableScrollWrapper({ children, className, innerClassName, hideScrollbar = true, ...props }: TableScrollWrapperProps) {
     const scrollRef = React.useRef<HTMLDivElement>(null)
     const [canScrollLeft, setCanScrollLeft] = React.useState(false)
     const [canScrollRight, setCanScrollRight] = React.useState(false)
@@ -64,10 +66,14 @@ export function TableScrollWrapper({ children, className, ...props }: TableScrol
         <div className={cn("relative group", className)} {...props}>
             <div
                 ref={scrollRef}
-                className="overflow-x-auto w-full scrollbar-hide"
+                className={cn(
+                    "overflow-x-auto w-full",
+                    hideScrollbar && "scrollbar-hide",
+                    innerClassName
+                )}
                 style={{
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none'
+                    scrollbarWidth: hideScrollbar ? 'none' : 'auto',
+                    msOverflowStyle: hideScrollbar ? 'none' : 'auto'
                 }}
                 onMouseEnter={checkScroll}
                 onTouchStart={checkScroll}

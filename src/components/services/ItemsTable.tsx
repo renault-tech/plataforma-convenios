@@ -22,7 +22,7 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { cn, getLegibleTextColor } from "@/lib/utils"
-import { Pencil, Trash2, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Paperclip, FileText, ArrowUpDown, ArrowUp, ArrowDown, Bell } from "lucide-react"
+import { Pencil, Trash2, AlertCircle, AlertTriangle, ChevronDown, ChevronRight, Paperclip, FileText, ArrowUpDown, ArrowUp, ArrowDown, Bell, Lock, Unlock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RowDetails } from "@/components/ui/RowDetails"
 import { TableScrollWrapper } from "@/components/ui/TableScrollWrapper"
@@ -58,6 +58,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatusChange, primaryColor, lastViewedAt, isLoading, highlightedItemId }: ItemsTableProps) {
     const [sorting, setSorting] = React.useState<SortingState>([])
+    const [isHeaderSticky, setIsHeaderSticky] = React.useState(false)
 
     const tableColumns: ColumnDef<any>[] = React.useMemo(() => {
         const dateColId = columns.find((c) => c.type === 'date' && /vencimento|prazo|limite|validade/i.test(c.label))?.id
@@ -68,6 +69,24 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
             header: ({ column }) => {
                 return (
                     <div className={cn("flex items-center", index === 0 ? "justify-start pl-[48px]" : "justify-center w-full")}>
+                        {index === 0 && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    setIsHeaderSticky(!isHeaderSticky)
+                                }}
+                                className="h-6 w-6 mr-2 text-slate-400 hover:text-slate-600 absolute left-4"
+                                title={isHeaderSticky ? "Desafixar cabeçalho" : "Fixar cabeçalho"}
+                            >
+                                {isHeaderSticky ? (
+                                    <Lock className="h-3 w-3" />
+                                ) : (
+                                    <Unlock className="h-3 w-3" />
+                                )}
+                            </Button>
+                        )}
                         <Button
                             variant="ghost"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
@@ -278,7 +297,7 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
         }
 
         return baseCols
-    }, [columns, onEdit, onDelete, lastViewedAt, onStatusChange])
+    }, [columns, onEdit, onDelete, lastViewedAt, onStatusChange, isHeaderSticky])
 
     const table = useReactTable({
         data,
@@ -294,8 +313,11 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
     })
 
     return (
-        <div className="rounded-md border bg-white shadow-sm overflow-hidden">
-            <TableScrollWrapper>
+        <div className="rounded-md border bg-white shadow-sm">
+            <TableScrollWrapper
+                innerClassName={isHeaderSticky ? "max-h-[75vh] overflow-y-auto" : ""}
+                hideScrollbar={!isHeaderSticky}
+            >
                 <Table className="min-w-full">
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -304,7 +326,10 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
                                     return (
                                         <TableHead
                                             key={header.id}
-                                            className="h-12 px-4 text-left align-middle font-bold text-slate-800 uppercase tracking-wider text-sm border-b-2 border-slate-100 min-w-[150px]"
+                                            className={cn(
+                                                "h-12 px-4 text-left align-middle font-bold text-slate-800 uppercase tracking-wider text-sm border-b-2 border-slate-100 min-w-[150px]",
+                                                isHeaderSticky && "sticky top-0 z-40 bg-white shadow-sm"
+                                            )}
                                             style={{ color: primaryColor ? getLegibleTextColor(primaryColor) : undefined }}
                                         >
                                             {header.isPlaceholder
