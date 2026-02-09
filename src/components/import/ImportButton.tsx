@@ -6,12 +6,12 @@ import { UploadCloud, Loader2 } from "lucide-react"
 import { parseExcelFile, type ParsedSheet } from "@/lib/import/parseExcel"
 import { ImportPreviewDialog } from "./ImportPreviewDialog"
 import { toast } from "sonner"
-import { createServiceFromImport } from "@/app/actions/import" // Will create this next
+import { createServiceFromImport } from "@/app/actions/import"
 import { useRouter } from "next/navigation"
 
 export function ImportButton({ className }: { className?: string }) {
     const [isParsing, setIsParsing] = useState(false)
-    const [previewData, setPreviewData] = useState<ParsedSheet | null>(null)
+    const [previewData, setPreviewData] = useState<ParsedSheet[]>([])
     const [showPreview, setShowPreview] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const router = useRouter()
@@ -22,9 +22,9 @@ export function ImportButton({ className }: { className?: string }) {
 
         setIsParsing(true)
         try {
-            const data = await parseExcelFile(file)
-            if (data) {
-                setPreviewData(data)
+            const sheets = await parseExcelFile(file)
+            if (sheets && sheets.length > 0) {
+                setPreviewData(sheets)
                 setShowPreview(true)
             } else {
                 toast.error("Não foi possível ler os dados do arquivo.")
@@ -39,20 +39,30 @@ export function ImportButton({ className }: { className?: string }) {
         }
     }
 
-    const handleCreateService = async (name: string, data: ParsedSheet, color: string) => {
+    const handleCreateServices = async (sheets: ParsedSheet[], color: string) => {
         try {
-            const result = await createServiceFromImport(name, data, color)
+            const results = []
 
-            if (result.success) {
-                toast.success("Planilha criada com sucesso!")
-                // Full page reload to update sidebar
-                if (result.slug) {
-                    window.location.href = `/servicos/${result.slug}`
+            for (const sheet of sheets) {
+                const result = await createServiceFromImport(sheet.name, sheet, color)
+                results.push(result)
+
+                if (!result.success) {
+                    toast.error(`Erro ao criar "${sheet.name}": ${result.error}`)
+                }
+            }
+
+            const successCount = results.filter(r => r.success).length
+
+            if (successCount > 0) {
+                toast.success(`${successCount} planilha(s) criada(s) com sucesso!`)
+                // Redirect to first created service
+                const firstSuccess = results.find(r => r.success && r.slug)
+                if (firstSuccess?.slug) {
+                    window.location.href = `/servicos/${firstSuccess.slug}`
                 } else {
                     window.location.reload()
                 }
-            } else {
-                toast.error("Erro ao criar planilha: " + result.error)
             }
         } catch (e: any) {
             toast.error("Erro crítico: " + e.message)
@@ -84,12 +94,14 @@ export function ImportButton({ className }: { className?: string }) {
                 <span className="text-slate-700">Importar</span>
             </Button>
 
-            <ImportPreviewDialog
-                open={showPreview}
-                onOpenChange={setShowPreview}
-                parsedData={previewData}
-                onConfirm={handleCreateService}
-            />
+            {previewData.length > 0 && (
+                <ImportPreviewDialog
+                    open={showPreview}
+                    onOpenChange={setShowPreview}
+                    sheets={previewData}
+                    onConfirm={handleCreateServices}
+                />
+            )}
         </>
     )
 }

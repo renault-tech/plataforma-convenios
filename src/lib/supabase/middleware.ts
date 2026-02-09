@@ -45,7 +45,7 @@ export async function updateSession(request: NextRequest) {
         path.startsWith('/recuperar-senha')
 
     // If User is NOT logged in and trying to access a PROTECTED route (everything else)
-    if (!user && !isAuthRoute && !path.startsWith('/auth/callback')) {
+    if (!user && !isAuthRoute && !path.startsWith('/auth/')) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)

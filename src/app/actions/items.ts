@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-export async function createItemAction(serviceId: string, itemData: any) {
+export async function createItemAction(serviceId: string, itemData: any, tableBlockId?: string) {
     const supabase = await createClient()
 
     try {
@@ -11,6 +11,7 @@ export async function createItemAction(serviceId: string, itemData: any) {
             .from('items')
             .insert({
                 service_id: serviceId,
+                table_block_id: tableBlockId || null,
                 data: itemData
             })
             .select()

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { Plus, Calendar as CalendarIcon, Paperclip, ChevronDown, FileText } from "lucide-react"
 
@@ -49,9 +49,10 @@ interface ItemFormProps {
     open?: boolean
     onOpenChange?: (open: boolean) => void
     trigger?: React.ReactNode
+    tableBlocks?: any[]
 }
 
-export function ItemForm({ columns, onSave, serviceName, initialData, open: controlledOpen, onOpenChange, trigger }: ItemFormProps) {
+export function ItemForm({ columns, onSave, serviceName, initialData, open: controlledOpen, onOpenChange, trigger, tableBlocks = [] }: ItemFormProps) {
     const [internalOpen, setInternalOpen] = useState(false)
     const isControlled = controlledOpen !== undefined
     const open = isControlled ? controlledOpen : internalOpen
@@ -61,8 +62,49 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
     }
 
     const { register, handleSubmit, control, reset, formState: { isSubmitting } } = useForm({
-        defaultValues: initialData || {}
     })
+
+    // BLOCK SELECTION LOGIC
+    const [selectedBlockId, setSelectedBlockId] = useState<string | undefined>(
+        initialData?.table_block_id || (tableBlocks.length > 0 ? tableBlocks[0].id : undefined)
+    )
+
+    // Update selected block when initialData changes or dialogue opens
+    useEffect(() => {
+        if (open) {
+            if (initialData?.table_block_id) {
+                setSelectedBlockId(initialData.table_block_id)
+            } else if (tableBlocks.length > 0) {
+                // Default to first block if no initial data
+                setSelectedBlockId(tableBlocks[0].id)
+            }
+        }
+    }, [open, initialData, tableBlocks])
+
+    // Derive active columns based on selection
+    const activeColumns = useMemo(() => {
+        if (!selectedBlockId || tableBlocks.length === 0) return columns
+
+        const block = tableBlocks.find(b => b.id === selectedBlockId)
+        if (!block) return columns
+
+        // Transform block columns to config format if needed
+        // Assuming block.columns matches the expected structure or we need to map it
+        // The ServiceView passes `getBlockColumns` result usually, but here we might need raw mapping
+        // However, if we change block, we need that block's config.
+
+        // Helper to map raw block columns to ColumnConfig
+        return block.columns.map((col: any) => ({
+            id: col.id || col.name,
+            label: col.name,
+            type: col.type,
+            required: false,
+            // Add options if available in future
+        }))
+    }, [selectedBlockId, tableBlocks, columns])
+
+    // Use activeColumns for rendering, fallback to passed columns
+    const displayColumns = tableBlocks.length > 0 ? activeColumns : columns
 
     const [isDetailsOpen, setIsDetailsOpen] = useState(false)
     const [isAttachmentsOpen, setIsAttachmentsOpen] = useState(false)
@@ -80,7 +122,7 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
     const onSubmit = async (data: any) => {
         // Convert numbers
         const formattedData = { ...data };
-        columns.forEach(col => {
+        displayColumns.forEach((col: any) => {
             if (formattedData[col.id]) {
                 if (col.type === 'currency') {
                     // Check if it's a string, replace dots (thousands) and comma (decimal)
@@ -94,6 +136,12 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
                 }
             }
         })
+
+
+        // Add table_block_id if relevant
+        if (selectedBlockId) {
+            formattedData.table_block_id = selectedBlockId
+        }
 
         await onSave(formattedData)
         setOpen(false) // Close dialog
@@ -124,7 +172,27 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
 
                 <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                     <form id="item-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                        {columns.length === 0 ? (
+                        {/* Block Selector */}
+                        {tableBlocks.length > 1 && (
+                            <div className="space-y-2 p-3 bg-slate-50 rounded-md border text-sm">
+                                <Label className="text-muted-foreground">Tabela de destino</Label>
+                                <Select
+                                    value={selectedBlockId}
+                                    onValueChange={setSelectedBlockId}
+                                    disabled={!!initialData?.table_block_id} // Disable if editing existing item
+                                >
+                                    <SelectTrigger className="bg-white">
+                                        <SelectValue placeholder="Selecione a tabela" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {tableBlocks.map(block => (
+                                            <SelectItem key={block.id} value={block.id}>{block.title}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+                        {displayColumns.length === 0 ? (
                             <div className="text-center py-6 text-muted-foreground">
                                 <p className="mb-2">Nenhum campo configurado para este serviço.</p>
                                 <Button variant="link" asChild className="p-0 h-auto font-normal text-blue-600">
@@ -132,7 +200,7 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
                                 </Button>
                             </div>
                         ) : (
-                            columns.map((col, index) => {
+                            displayColumns.map((col, index) => {
                                 if (col.visible === false) return null
 
                                 // Fallback ID if missing

@@ -43,6 +43,7 @@ export async function createServiceFromImport(name: string, importData: any, col
                 owner_id: user.id,
                 primary_color: color,
                 icon: icon
+                // Note: metadata field removed for compatibility
             })
             .select()
             .single()
@@ -66,55 +67,112 @@ export async function createServiceFromImport(name: string, importData: any, col
             serviceError = attempt1.error
         }
 
+        if (serviceError) throw serviceError
 
+        // DETECT MULTI-TABLE IMPORT
+        // If we have tableBlocks and more than 1 block, or even just 1 block but prefer new structure?
+        // Let's use new structure if tableBlocks is present.
 
-        // 2. Create Columns
-        const columns = importData.columns.map((col: any, index: number) => ({
-            service_id: service.id,
-            name: col.name,
-            type: col.type === 'date' ? 'date' : col.type === 'number' ? 'currency' : 'text',
-            order: index
-        }))
+        // However, parseExcel ALWAYS returns tableBlocks now.
+        // So we should decide based on:
+        // 1. If length > 1 -> Definitely use table_blocks
+        // 2. If length === 1 -> Could use legacy service_columns for backward compatibility with existing features?
+        //    Using legacy service_columns ensures standard features (sorting, filtering on single table) work out of box
+        //    without modifying ServiceView heavily for single table case.
 
-        // We need to know the IDs of created columns to map data!
-        // So we must insert and return IDs.
-        const { data: createdColumns, error: columnsError } = await supabase
-            .from("service_columns")
-            .insert(columns)
-            .select()
+        const hasMultipleTables = importData.tableBlocks && importData.tableBlocks.length > 1
 
-        if (columnsError) throw columnsError
+        if (hasMultipleTables) {
+            // 2. Create Table Blocks
+            console.log(`Creating ${importData.tableBlocks.length} table blocks...`)
 
-        // Map column name to new column ID
-        const columnMap: Record<string, string> = {}
-        createdColumns.forEach((col: any) => {
-            columnMap[col.name] = col.id
-        })
+            for (let i = 0; i < importData.tableBlocks.length; i++) {
+                const block = importData.tableBlocks[i]
 
-        // 3. Prepare Items Data
-        // importData.data is array of objects { "Header Name": Value }
-        // We need to transform to { "col_uuid": Value }
+                // Create Table Block
+                const { data: tableBlock, error: blockError } = await supabase
+                    .from('table_blocks')
+                    .insert({
+                        service_id: service.id,
+                        title: block.title || `Tabela ${i + 1}`,
+                        order: i,
+                        columns: block.columns
+                    })
+                    .select()
+                    .single()
 
-        const itemsToInsert = importData.data.map((row: any) => {
-            const itemData: Record<string, any> = {}
-            Object.keys(row).forEach(header => {
-                // Use column name directly as key (matches how ServiceView expects data)
-                itemData[header] = row[header]
-            })
-            return {
-                service_id: service.id,
-                data: itemData
+                if (blockError) throw blockError
+
+                // Create Items for this block
+                // Data rows are already objects { "colId": val }
+                // We need to map them to item structure
+
+                const itemsToInsert = block.data.map((row: any) => ({
+                    service_id: service.id,
+                    table_block_id: tableBlock.id,
+                    data: row
+                }))
+
+                // Batch insert items
+                console.log(`Block ${i} (${block.title}): Inserting ${itemsToInsert.length} items...`)
+                if (itemsToInsert.length > 0) {
+                    const { error: itemsError, data: insertedItems } = await supabase
+                        .from("items")
+                        .insert(itemsToInsert)
+                        .select('id')
+
+                    if (itemsError) {
+                        console.error(`Error inserting items for block ${i}:`, itemsError)
+                        throw itemsError
+                    }
+                    console.log(`Block ${i}: Successfully inserted ${insertedItems?.length} items.`)
+                }
             }
-        })
 
-        // 4. Batch Insert Items
-        // Supabase limits? Maybe chunk it if > 1000? 
-        // For MVP assuming reasonable size.
-        const { error: itemsError } = await supabase
-            .from("items")
-            .insert(itemsToInsert)
+        } else {
+            // SINGLE TABLE (LEGACY MODE)
+            // Use the first block (or legacy properties)
+            const columnsData = importData.columns
+            const itemsData = importData.data
 
-        if (itemsError) throw itemsError
+            // 2. Create Columns in service_columns
+            const columns = columnsData.map((col: any, index: number) => ({
+                service_id: service.id,
+                name: col.name,
+                type: col.type === 'date' ? 'date' : col.type === 'number' ? 'currency' : 'text',
+                order: index
+            }))
+
+            // We need to know the IDs of created columns to map data if we were using normalized data
+            // But here items store data as JSON with column names/ids as keys.
+            // Just inserting columns is enough for schema definition.
+            const { error: columnsError } = await supabase
+                .from("service_columns")
+                .insert(columns)
+
+            if (columnsError) throw columnsError
+
+            // 3. Prepare Items Data
+            const itemsToInsert = itemsData.map((row: any) => {
+                const itemData: Record<string, any> = {}
+                Object.keys(row).forEach(header => {
+                    itemData[header] = row[header]
+                })
+                return {
+                    service_id: service.id,
+                    data: itemData
+                }
+            })
+
+            // 4. Batch Insert Items
+            if (itemsToInsert.length > 0) {
+                const { error: itemsError } = await supabase
+                    .from("items")
+                    .insert(itemsToInsert)
+
+                if (itemsError) throw itemsError
+            }
+        }
 
         revalidatePath("/") // Refresh sidebar
         revalidatePath("/dashboard")

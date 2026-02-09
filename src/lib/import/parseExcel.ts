@@ -5,226 +5,243 @@ export interface ParsedColumn {
     name: string
     type: 'text' | 'date' | 'currency' | 'number'
     preview: any[]
+    originalIndex?: number // Store the original column index for robust data mapping
+}
+
+export interface TableBlock {
+    title: string
+    columns: ParsedColumn[]
+    data: any[]
+    headerRowIndex?: number
 }
 
 export interface ParsedSheet {
     name: string
+    tableBlocks: TableBlock[]
+    // Backward compatibility
     columns: ParsedColumn[]
     data: any[]
 }
 
-export async function parseExcelFile(file: File): Promise<ParsedSheet | null> {
+export async function parseExcelFile(file: File): Promise<ParsedSheet[]> {
     const buffer = await file.arrayBuffer()
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.load(buffer)
 
     const worksheet = workbook.worksheets[0]
-    if (!worksheet) return null
+    if (!worksheet) return []
 
-    const data: any[] = []
-    const headers: string[] = []
-    let maxColNumber = 0
+    const tableBlocks = detectTableBlocks(worksheet)
 
-    // Helper to safely extract value
-    const getCellValue = (cell: ExcelJS.Cell): any => {
-        let value = cell.value
+    if (tableBlocks.length === 0) return []
 
-        // Handle rich text, formulas, hyperlinks
-        if (typeof value === 'object' && value !== null) {
-            if ('result' in value) value = (value as any).result
-            else if ('richText' in value) value = (value as any).richText.map((t: any) => t.text).join('')
-            else if ('text' in value && 'hyperlink' in value) value = (value as any).text
-            // Add other object handlers if needed, but usually result/richText covers it
-        }
+    // For backward compatibility, use the first block as the main one
+    const firstBlock = tableBlocks[0]
 
-        // ExcelJS sometimes returns object for dates or errors
-        // Clean up
-        if (value && typeof value === 'object' && !(value instanceof Date)) {
-            // Fallback for unknown objects
-            value = String(value)
-            if (value === '[object Object]') value = ''
-        }
+    return [{
+        name: file.name.replace(/\.xlsx?$/i, ''),
+        tableBlocks,
+        columns: firstBlock.columns,
+        data: firstBlock.data
+    }]
+}
 
-        return value
-    }
-
-    // Smart Header Detection: Find the actual header row
-    // Skip title rows and empty rows to find the real table
-    const allRows: any[] = []
-    worksheet.eachRow({ includeEmpty: true }, (row: ExcelJS.Row, rowNumber: number) => {
+function detectTableBlocks(worksheet: ExcelJS.Worksheet): TableBlock[] {
+    // Convert worksheet to array to allow lookahead
+    const rows: any[][] = []
+    // ExcelJS uses 1-based indexing for rows
+    worksheet.eachRow((row, rowIndex) => {
         const cells: any[] = []
         row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-            cells[colNumber] = getCellValue(cell)
-            if (colNumber > maxColNumber) maxColNumber = colNumber
+            // ExcelJS uses 1-based indexing for columns
+            // We map to 0-based array index, but keep empty cells
+            cells[colNumber] = cell.value
         })
-        allRows.push({ rowNumber, cells })
+        rows[rowIndex] = cells
     })
 
-    // Detect header row by finding first row with 3+ non-empty cells followed by data
-    let headerRowIndex = 0
-    let dataStartIndex = 1
+    // If worksheet is empty
+    if (rows.length === 0) return []
 
-    for (let i = 0; i < allRows.length; i++) {
-        const row = allRows[i]
-        const nonEmptyCells = row.cells.filter((c: any) => c !== null && c !== undefined && c !== '').length
+    const blocks: TableBlock[] = []
+    let currentBlock: TableBlock | null = null
+    let pendingTitle = ''
 
-        // Skip completely empty rows
-        if (nonEmptyCells === 0) continue
+    // Start from row 1 (1-based index to match ExcelJS logic in array, though array index 0 is empty/unused usually)
+    // We'll iterate up to the last row index found
+    let i = 1
 
-        // Skip likely title rows with multiple detection methods
-        if (nonEmptyCells <= 2) {
-            continue // Very sparse row, likely a title or section header
+    while (i < rows.length) {
+        const currentRow = rows[i] || []
+        const nextRow = rows[i + 1] || [] // Lookahead
+
+        // Helper to get non-empty cells
+        const currentNonEmpty = currentRow.filter(c => c !== null && c !== undefined && c !== '')
+        const nextNonEmpty = nextRow.filter(c => c !== null && c !== undefined && c !== '')
+
+        // Case 1: Empty Row
+        if (currentNonEmpty.length === 0) {
+            // If we have a current block and hit empty rows, we might be ending a block
+            if (currentBlock) {
+                // Check if next row is also empty or start of new block
+                // For now, let's treat empty row as end of data for current block
+                if (currentBlock.data.length > 0) {
+                    blocks.push(currentBlock)
+                    currentBlock = null
+                }
+            }
+            i++
+            continue
         }
 
-        // Check if this looks like a title row (even with multiple cells)
-        const firstNonEmptyCell = row.cells.find((c: any) => c !== null && c !== undefined && c !== '')
-        if (firstNonEmptyCell && typeof firstNonEmptyCell === 'string') {
-            // Skip if first cell is very long (likely a title/description)
-            if (firstNonEmptyCell.length > 50) {
-                continue
-            }
+        // Case 2: DETECT TITLE (Text row + Lookahead for Header)
+        // A row is a title if it has few cells AND a header (larger row) appears soon after.
+        // This handles consecutive title rows (e.g. "Title 1" -> "Title 2" -> Empty -> "Header")
 
-            // Skip if the row has only one unique value repeated (merged cell pattern)
-            const uniqueValues = new Set(row.cells.filter((c: any) => c !== null && c !== undefined && c !== ''))
-            if (uniqueValues.size === 1) {
-                continue // All non-empty cells have the same value = merged title cell
-            }
-        }
+        // Conditions:
+        // 1. Current row matches title characteristics (<= 2 cells)
+        // 2. Lookahead finds a significantly larger row (Header) OR an Empty row (Separator) within X rows
 
-        // Potential header row: has 3+ cells with different values
-        if (nonEmptyCells >= 3) {
-            // Check if next row also has data (confirms this is a table)
-            const nextRow = allRows[i + 1]
-            if (nextRow) {
-                const nextNonEmpty = nextRow.cells.filter((c: any) => c !== null && c !== undefined && c !== '').length
-                if (nextNonEmpty >= 2) {
-                    // Additional validation: header cells should be relatively short
-                    const cellLengths = row.cells
-                        .filter((c: any) => c && typeof c === 'string')
-                        .map((c: string) => c.length)
-                    const avgLength = cellLengths.reduce((a, b) => a + b, 0) / cellLengths.length
+        let isTitle = false
+        const lookaheadLimit = 5
+        let foundHeader = false
+        let foundSeparator = false
 
-                    // If average cell length is very long, might still be a title
-                    if (avgLength > 100) {
-                        continue
+        if (currentNonEmpty.length > 0 && currentNonEmpty.length <= 2) {
+            // Special check: If next row is empty, it's a strong separator signal
+            if (nextNonEmpty.length === 0) {
+                isTitle = true
+                foundSeparator = true
+            } else {
+                // Lookahead for Header
+                for (let k = 1; k <= lookaheadLimit; k++) {
+                    const checkRowIdx = i + k
+                    if (checkRowIdx >= rows.length) break
+
+                    const checkRow = rows[checkRowIdx] || []
+                    const checkNonEmpty = checkRow.filter(c => c !== null && c !== undefined && c !== '')
+
+                    if (checkNonEmpty.length === 0) {
+                        // Found separator before header? Ambiguous, but suggests title group
+                        foundSeparator = true
+                        isTitle = true
+                        break
                     }
 
-                    // Found it! This is the header row
-                    headerRowIndex = i
-                    dataStartIndex = i + 1
+                    // Header detection threshold: >= current + 2 cols (or absolute >= 3)
+                    if (checkNonEmpty.length >= Math.max(3, currentNonEmpty.length + 2)) {
+                        isTitle = true
+                        foundHeader = true
+                        break
+                    }
+
+                    // If we find another small row, continue scan
+                    if (checkNonEmpty.length <= 2) continue
+
                     break
                 }
             }
         }
-    }
 
-    // Extract headers from detected header row
-    if (headerRowIndex < allRows.length) {
-        const headerRow = allRows[headerRowIndex]
-        headerRow.cells.forEach((cellValue: any, colNumber: number) => {
-            if (colNumber > 0) { // Skip index 0
-                headers[colNumber] = cellValue ? String(cellValue) : `Coluna ${colNumber}`
+        if (isTitle) {
+            // Found a title
+            if (currentBlock && currentBlock.data.length > 0) {
+                blocks.push(currentBlock)
+                currentBlock = null
             }
-        })
-    }
 
-    // Extract data rows starting from dataStartIndex
-    for (let i = dataStartIndex; i < allRows.length; i++) {
-        const row = allRows[i]
-        const rowData: any = {}
+            let thisTitle = String(currentNonEmpty[0]).trim() // Assuming title is first cell or joined
+            if (currentNonEmpty.length > 1) thisTitle = currentNonEmpty.join(' ').trim()
 
-        // Check if row is completely empty
-        const hasData = row.cells.some((c: any) => c !== null && c !== undefined && c !== '')
-        if (!hasData) continue // Skip empty rows
-
-        row.cells.forEach((cellValue: any, colNumber: number) => {
-            if (colNumber > 0) {
-                rowData[`__col_${colNumber}`] = cellValue
+            if (pendingTitle) {
+                pendingTitle += " " + thisTitle
+            } else {
+                pendingTitle = thisTitle
             }
-        })
-        data.push(rowData)
-    }
 
-    // Fill missing headers
-    for (let i = 1; i <= maxColNumber; i++) {
-        if (!headers[i]) headers[i] = `Coluna ${i}`
-    }
-
-    // Deduplicate Headers
-    const headerCounts: Record<string, number> = {}
-    for (let i = 1; i <= maxColNumber; i++) {
-        const original = headers[i]
-        if (headerCounts[original]) {
-            headerCounts[original]++
-            headers[i] = `${original}_${headerCounts[original]}`
-        } else {
-            headerCounts[original] = 1
-        }
-    }
-
-    // Normalize Data with final headers
-    const normalizedData = data.map(rawRow => {
-        const newRow: any = {}
-        for (let i = 1; i <= maxColNumber; i++) {
-            const header = headers[i]
-            const val = rawRow[`__col_${i}`]
-            newRow[header] = val
-        }
-        return newRow
-    })
-
-    // Identify non-empty columns
-    const nonEmptyColumns: number[] = []
-    for (let i = 1; i <= maxColNumber; i++) {
-        const header = headers[i]
-        const hasData = normalizedData.some(row => {
-            const val = row[header]
-            return val !== null && val !== undefined && val !== ''
-        })
-
-        // Keep column if it has a real header OR has any data
-        const hasRealHeader = !header.startsWith('Coluna ')
-        if (hasRealHeader || hasData) {
-            nonEmptyColumns.push(i)
-        }
-    }
-
-    // Filter normalized data to only include non-empty columns
-    const filteredData = normalizedData.map(row => {
-        const newRow: any = {}
-        nonEmptyColumns.forEach(colIndex => {
-            const header = headers[colIndex]
-            newRow[header] = row[header]
-        })
-        return newRow
-    })
-
-    // Infer Column Types only for non-empty columns
-    const columns: ParsedColumn[] = []
-    nonEmptyColumns.forEach(colIndex => {
-        const header = headers[colIndex]
-
-        let type: ParsedColumn['type'] = 'text'
-        const sampleValues = filteredData.slice(0, 10).map(d => d[header])
-
-        const isDate = sampleValues.some(v => v instanceof Date)
-        if (isDate) type = 'date'
-        else {
-            const isNumber = sampleValues.some(v => typeof v === 'number')
-            if (isNumber) type = 'number'
+            i++  // Skip this title row
+            continue
         }
 
-        columns.push({
-            id: header,
-            name: header,
-            type,
-            preview: sampleValues
-        })
-    })
+        // Case 3: DETECT HEADER (Start of Table)
+        // A row with multiple cells, and we don't have a current block (or just closed one)
+        // Arbitrary threshold: >= 1 column (if it didn't match title above)
+        if (!currentBlock && currentNonEmpty.length >= 1) {
+            // It's a header
 
-    return {
-        name: file.name.replace(/\.xlsx?$/i, ''), // Use filename, remove extension
-        columns,
-        data: filteredData
+            const columns: ParsedColumn[] = []
+            const seenNames = new Map<string, number>()
+
+            // We iterate using forEach on the sparse array to get index
+            currentRow.forEach((cellValue, idx) => {
+                if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
+                    const originalName = String(cellValue)
+                    // Ensure unique ID
+                    let id = originalName
+
+                    if (seenNames.has(originalName)) {
+                        const count = seenNames.get(originalName)! + 1
+                        seenNames.set(originalName, count)
+                        id = `${originalName}_${count}`
+                    } else {
+                        seenNames.set(originalName, 1)
+                    }
+
+                    columns.push({
+                        id,
+                        name: originalName,
+                        type: 'text',
+                        preview: [],
+                        originalIndex: idx // Store the original index
+                    })
+                }
+            })
+
+            if (columns.length > 0) {
+                currentBlock = {
+                    title: pendingTitle || `Tabela ${blocks.length + 1}`,
+                    columns,
+                    data: [],
+                    headerRowIndex: i
+                }
+                pendingTitle = ''
+                i++
+                continue
+            }
+        }
+
+        // Case 4: DATA ROW
+        if (currentBlock) {
+            const rowData: any = {}
+            let hasData = false
+
+            // Iterate the current row cells
+            currentRow.forEach((cellValue, colIdx) => {
+                // Find the column definition that corresponds to this index
+                const column = currentBlock!.columns.find(c => c.originalIndex === colIdx)
+
+                if (column) {
+                    rowData[column.id] = cellValue
+                    if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
+                        hasData = true
+                    }
+                }
+            })
+
+            if (hasData) {
+                currentBlock.data.push(rowData)
+                // Extend preview (legacy support)
+                // currentBlock.columns.forEach(col => { ... })
+            }
+        }
+
+        i++
     }
+
+    // Add last block
+    if (currentBlock && currentBlock.data.length > 0) {
+        blocks.push(currentBlock)
+    }
+
+    return blocks
 }

@@ -20,11 +20,11 @@ export async function GET(request: Request) {
 
             if (isLocalEnv) {
                 // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-                return NextResponse.redirect(`${origin}${next}?welcome=true`)
+                return NextResponse.redirect(`${origin}/auth/confirmed`)
             } else if (forwardedHost) {
-                return NextResponse.redirect(`https://${forwardedHost}${next}?welcome=true`)
+                return NextResponse.redirect(`https://${forwardedHost}/auth/confirmed`)
             } else {
-                return NextResponse.redirect(`${origin}${next}?welcome=true`)
+                return NextResponse.redirect(`${origin}/auth/confirmed`)
             }
         }
     }

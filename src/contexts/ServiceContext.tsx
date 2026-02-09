@@ -23,6 +23,12 @@ export type Service = {
         type: 'user' | 'group'
         origin_group_id?: string
     }
+    table_blocks?: {
+        id: string
+        title: string
+        order: number
+        columns: any
+    }[]
 }
 
 type ServiceContextType = {
@@ -86,14 +92,14 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
                 // 1. Fetch My Services
                 supabase
                     .from("services")
-                    .select("*, service_permissions(grantee_type, origin_group_id, grantee_id)")
+                    .select("*, service_permissions(grantee_type, origin_group_id, grantee_id), table_blocks(*)")
                     .eq("owner_id", user.id)
                     .order("name"),
 
                 // 2. Fetch Shared Services
                 supabase
                     .from("services")
-                    .select("*, service_permissions!inner(id, grantee_type, origin_group_id, status)")
+                    .select("*, service_permissions!inner(id, grantee_type, origin_group_id, status), table_blocks(*)")
                     .eq("service_permissions.status", "active")
                     .neq("owner_id", user.id)
             ])

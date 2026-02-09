@@ -38,6 +38,8 @@ export interface ColumnConfig {
     label: string
     type: ColumnType
     required?: boolean
+    visible?: boolean
+    width?: number
     options?: string[]
 }
 
@@ -45,6 +47,7 @@ interface ItemsTableProps {
     columns: ColumnConfig[]
     data: any[]
     serviceId?: string // Context
+    tableBlockId?: string // For multi-table services
     onEdit?: (item: any) => void
     onDelete?: (item: any) => void
     onStatusChange?: (id: string, data: any) => Promise<void>
@@ -55,9 +58,11 @@ interface ItemsTableProps {
 }
 
 import { Skeleton } from "@/components/ui/skeleton"
+import { updateColumnWidthAction as saveColumnWidth } from "@/app/actions/columns"
 
-export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatusChange, primaryColor, lastViewedAt, isLoading, highlightedItemId }: ItemsTableProps) {
+export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onDelete, onStatusChange, primaryColor, lastViewedAt, isLoading, highlightedItemId }: ItemsTableProps) {
     const [sorting, setSorting] = React.useState<SortingState>([])
+    const [columnSizing, setColumnSizing] = React.useState({})
     const [isHeaderSticky, setIsHeaderSticky] = React.useState(false)
 
     const tableColumns: ColumnDef<any>[] = React.useMemo(() => {
@@ -66,9 +71,12 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
 
         const baseCols: ColumnDef<any>[] = columns.map((col, index) => ({
             accessorKey: col.id,
-            header: ({ column }) => {
+            size: col.width || 150, // Default width
+            minSize: 80,
+            maxSize: 800,
+            header: ({ column, header }) => {
                 return (
-                    <div className={cn("flex items-center", index === 0 ? "justify-start pl-[48px]" : "justify-center w-full")}>
+                    <div className={cn("flex items-center relative w-full h-full", index === 0 ? "justify-start pl-[48px]" : "justify-center")}>
                         {index === 0 && (
                             <Button
                                 variant="ghost"
@@ -90,15 +98,15 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
                         <Button
                             variant="ghost"
                             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                            className="h-8 data-[state=open]:bg-accent hover:bg-slate-100/50"
+                            className="h-8 data-[state=open]:bg-accent hover:bg-slate-100/50 px-2"
                         >
-                            {col.label}
+                            <span className="truncate max-w-[150px] block" title={col.label}>{col.label || col.id}</span>
                             {column.getIsSorted() === "asc" ? (
-                                <ArrowUp className="ml-2 h-3 w-3" />
+                                <ArrowUp className="ml-2 h-3 w-3 flex-shrink-0" />
                             ) : column.getIsSorted() === "desc" ? (
-                                <ArrowDown className="ml-2 h-3 w-3" />
+                                <ArrowDown className="ml-2 h-3 w-3 flex-shrink-0" />
                             ) : (
-                                <ArrowUpDown className="ml-2 h-3 w-3 opacity-50" />
+                                <ArrowUpDown className="ml-2 h-3 w-3 opacity-50 flex-shrink-0" />
                             )}
                         </Button>
                         {(col.type === 'date' || col.type === 'status') && (
@@ -306,9 +314,13 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
         getExpandedRowModel: getExpandedRowModel(),
         getRowCanExpand: () => true,
         onSortingChange: setSorting,
+        onColumnSizingChange: setColumnSizing,
+        columnResizeMode: "onChange",
+        enableColumnResizing: true,
         getSortedRowModel: getSortedRowModel(),
         state: {
             sorting,
+            columnSizing,
         },
     })
 
@@ -318,7 +330,7 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
                 innerClassName={isHeaderSticky ? "max-h-[75vh] overflow-y-auto" : ""}
                 hideScrollbar={!isHeaderSticky}
             >
-                <Table className="min-w-full">
+                <Table className="min-w-full w-full table-fixed" style={{ tableLayout: 'fixed' }}>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id} className="hover:bg-transparent border-slate-200">
@@ -327,10 +339,15 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
                                         <TableHead
                                             key={header.id}
                                             className={cn(
-                                                "h-12 px-4 text-left align-middle font-bold text-slate-800 uppercase tracking-wider text-sm border-b-2 border-slate-100 min-w-[150px]",
+                                                "h-12 px-4 text-left align-middle font-bold text-slate-800 uppercase tracking-wider text-sm border-b-2 border-slate-100 group relative",
                                                 isHeaderSticky && "sticky top-0 z-40 bg-white shadow-sm"
                                             )}
-                                            style={{ color: primaryColor ? getLegibleTextColor(primaryColor) : undefined }}
+                                            style={{
+                                                width: header.getSize(),
+                                                minWidth: header.column.columnDef.minSize,
+                                                maxWidth: header.column.columnDef.maxSize,
+                                                color: primaryColor ? getLegibleTextColor(primaryColor) : undefined
+                                            }}
                                         >
                                             {header.isPlaceholder
                                                 ? null
@@ -338,6 +355,52 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
                                                     header.column.columnDef.header,
                                                     header.getContext()
                                                 )}
+                                            {/* Resizer Handle */}
+                                            {header.column.getCanResize() && (
+                                                <div
+                                                    onMouseDown={(e) => {
+                                                        header.getResizeHandler()(e)
+                                                        e.stopPropagation()
+                                                        e.preventDefault() // Prevent text selection
+                                                        const startWidth = header.column.getSize()
+                                                        const onMouseUp = () => {
+                                                            const endWidth = header.column.getSize()
+                                                            if (startWidth !== endWidth) {
+                                                                if (serviceId) {
+                                                                    saveColumnWidth(serviceId, tableBlockId, header.column.id, endWidth)
+                                                                }
+                                                            }
+                                                            window.removeEventListener('mouseup', onMouseUp)
+                                                        }
+                                                        window.addEventListener('mouseup', onMouseUp)
+                                                    }}
+                                                    onTouchStart={(e) => {
+                                                        header.getResizeHandler()(e)
+                                                        e.stopPropagation()
+                                                        const startWidth = header.column.getSize()
+                                                        const onTouchEnd = () => {
+                                                            const endWidth = header.column.getSize()
+                                                            if (startWidth !== endWidth) {
+                                                                if (serviceId) {
+                                                                    saveColumnWidth(serviceId, tableBlockId, header.column.id, endWidth)
+                                                                }
+                                                            }
+                                                            window.removeEventListener('touchend', onTouchEnd)
+                                                        }
+                                                        window.addEventListener('touchend', onTouchEnd)
+                                                    }}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className={cn(
+                                                        "absolute right-0 top-0 h-full w-4 cursor-col-resize touch-none select-none z-20 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity",
+                                                    )}
+                                                >
+                                                    {/* The visible line */}
+                                                    <div className={cn(
+                                                        "w-1 h-full bg-blue-300",
+                                                        header.column.getIsResizing() ? "bg-blue-600 w-1.5 opacity-100" : ""
+                                                    )} />
+                                                </div>
+                                            )}
                                         </TableHead>
                                     )
                                 })}
@@ -386,7 +449,15 @@ export function ItemsTable({ columns, data, serviceId, onEdit, onDelete, onStatu
 
                                             {/* Cells */}
                                             {row.getVisibleCells().map((cell) => (
-                                                <TableCell key={cell.id} className="align-middle py-3">
+                                                <TableCell
+                                                    key={cell.id}
+                                                    className="align-middle py-3 px-2 border-b border-slate-100 whitespace-normal break-words"
+                                                    style={{
+                                                        width: cell.column.getSize(),
+                                                        minWidth: cell.column.columnDef.minSize,
+                                                        maxWidth: cell.column.columnDef.maxSize,
+                                                    }}
+                                                >
                                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                                 </TableCell>
                                             ))}

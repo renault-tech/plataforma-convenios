@@ -23,6 +23,14 @@ import { createItemAction, updateItemAction, deleteItemAction } from "@/app/acti
 import { useTutorial } from "@/hooks/useTutorial"
 import { ServiceAlertsButton } from "@/components/notifications/ServiceAlertsButton"
 import { ExportDropdown } from "@/components/export/ExportDropdown"
+import { AddColumnDialog } from "@/components/services/AddColumnDialog"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { FileText, Columns } from "lucide-react"
 
 // Widget Imports REMOVED as requested
 
@@ -42,6 +50,9 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
     const supabase = createClient()
     const searchParams = useSearchParams()
     const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null)
+    const [formOpen, setFormOpen] = useState(false)
+    const [addColumnOpen, setAddColumnOpen] = useState(false)
+    const [targetBlockId, setTargetBlockId] = useState<string | undefined>(undefined)
 
     // Alert Settings State REMOVED (No widgets)
 
@@ -148,7 +159,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
 
     // --- Widget Logic Removed ---
 
-    const handleCreateItem = async (formData: any) => {
+    const handleCreateItem = async (formData: any, tableBlockId?: string) => {
         try {
             if (!activeService) {
                 toast.error("Serviço não identificado.")
@@ -170,7 +181,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
             }
 
             // Server Action
-            const result = await createItemAction(activeService.id, { ...cleanData, attachments })
+            const result = await createItemAction(activeService.id, { ...cleanData, attachments }, tableBlockId)
 
             if (!result.success) throw new Error(result.error)
 
@@ -179,12 +190,13 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
             const normalizedItem = {
                 id: newItem.id,
                 service_id: newItem.service_id,
+                table_block_id: newItem.table_block_id,
                 created_at: newItem.created_at,
                 updated_at: newItem.updated_at,
                 ...newItem.data
             }
 
-            setItems(prev => [normalizedItem, ...prev])
+            setItems(prev => [...prev, normalizedItem])
             toast.success("Item adicionado!")
         } catch (error: any) {
             console.error("Error creating item:", error)
@@ -244,20 +256,72 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
 
     // Transform service_columns from DB into columns_config format for ItemsTable
     const columnsConfig = React.useMemo(() => {
+        let cols: any[] = []
         if (activeService?.service_columns && Array.isArray(activeService.service_columns)) {
-            return activeService.service_columns
-                .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
-                .map((col: any) => ({
-                    id: col.name, // Use column name as ID (matches data keys in items)
-                    label: col.name,
-                    type: col.type as any,
-                    required: false
-                }))
+            cols = activeService.service_columns.sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+        } else {
+            cols = activeService?.columns_config || []
         }
-        // Fallback to columns_config if service_columns doesn't exist (legacy services)
-        return activeService?.columns_config || []
+
+        const seenIds = new Map<string, number>()
+
+        return cols.map((col: any) => {
+            const originalId = col.id || col.name
+            let finalId = originalId
+
+            if (seenIds.has(originalId)) {
+                const count = seenIds.get(originalId)! + 1
+                seenIds.set(originalId, count)
+                finalId = `${originalId}_${count}`
+            } else {
+                seenIds.set(originalId, 1)
+            }
+
+            return {
+                id: finalId,
+                label: col.name, // Label keeps original name
+                type: col.type as any,
+                width: col.width || 150,
+                required: false
+            }
+        })
     }, [activeService?.service_columns, activeService?.columns_config])
 
+
+    const tableBlocks = React.useMemo(() => {
+        return activeService?.table_blocks?.sort((a: any, b: any) => (a.order || 0) - (b.order || 0)) || []
+    }, [activeService?.table_blocks])
+
+    /* Helper helper to get columns for a specific block or fallback to global */
+    const getBlockColumns = useCallback((blockId?: string) => {
+        if (!blockId || tableBlocks.length === 0) return columnsConfig
+
+        const block = tableBlocks.find((b: any) => b.id === blockId)
+        if (!block) return columnsConfig
+
+        const seenIds = new Map<string, number>()
+
+        return block.columns.map((col: any) => {
+            const originalId = col.id || col.name
+            let finalId = originalId
+
+            if (seenIds.has(originalId)) {
+                const count = seenIds.get(originalId)! + 1
+                seenIds.set(originalId, count)
+                finalId = `${originalId}_${count}`
+            } else {
+                seenIds.set(originalId, 1)
+            }
+
+            return {
+                id: finalId,
+                label: col.name,
+                type: col.type,
+                width: col.width || 150,
+                required: false
+            }
+        })
+    }, [tableBlocks, columnsConfig])
 
     const lastViewedAt = initialLastViewed
 
@@ -318,36 +382,44 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                         data-tour-order="1"
                     >
                         <ServiceIcon name={activeService.icon} className="h-8 w-8 text-blue-500" />
-                        {isEditingTitle ? (
-                            <div className="flex items-center gap-2">
-                                <input
-                                    value={titleVal}
-                                    onChange={(e) => setTitleVal(e.target.value)}
-                                    className="text-2xl font-bold border rounded px-2 py-1 max-w-[300px]"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleSaveTitle()
-                                        if (e.key === 'Escape') setIsEditingTitle(false)
-                                    }}
-                                />
-                                <button onClick={handleSaveTitle} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">Salvar</button>
-                                <button onClick={() => setIsEditingTitle(false)} className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded hover:bg-slate-200">Cancelar</button>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2 group">
-                                <h1 className="text-2xl font-bold" style={{ color: getLegibleTextColor(activeService.primary_color) }}>
-                                    {activeService.name}
-                                </h1>
-                                <button
-                                    onClick={() => setIsEditingTitle(true)}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 rounded text-slate-400"
-                                    title="Editar nome"
-                                >
-                                    <Pencil className="h-4 w-4" />
-                                </button>
-                                <ServiceAlertsButton serviceId={activeService.id} />
-                            </div>
-                        )}
+                        <div className="flex flex-col">
+                            {/* Display title if exists in metadata */}
+                            {activeService.metadata?.title && activeService.metadata.title.length > 0 && (
+                                <div className="text-sm font-medium text-muted-foreground mb-1">
+                                    {activeService.metadata.title.join(' ')}
+                                </div>
+                            )}
+                            {isEditingTitle ? (
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        value={titleVal}
+                                        onChange={(e) => setTitleVal(e.target.value)}
+                                        className="text-2xl font-bold border rounded px-2 py-1 max-w-[300px]"
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleSaveTitle()
+                                            if (e.key === 'Escape') setIsEditingTitle(false)
+                                        }}
+                                    />
+                                    <button onClick={handleSaveTitle} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">Salvar</button>
+                                    <button onClick={() => setIsEditingTitle(false)} className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded hover:bg-slate-200">Cancelar</button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 group">
+                                    <h1 className="text-2xl font-bold" style={{ color: getLegibleTextColor(activeService.primary_color) }}>
+                                        {activeService.name}
+                                    </h1>
+                                    <button
+                                        onClick={() => setIsEditingTitle(true)}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 rounded text-slate-400"
+                                        title="Editar nome"
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </button>
+                                    <ServiceAlertsButton serviceId={activeService.id} />
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1 ml-10">
                         {items?.length || 0} registros
@@ -363,8 +435,6 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                     {isMounted && (
                         <>
                             {/* WIDGETS BUTTON REMOVED */}
-
-
 
                             <div id="service-info-btn">
                                 <ServiceInfoDialog service={activeService} />
@@ -390,28 +460,40 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                                 />
                             </div>
 
+                            {/* Unified Add Menu */}
                             <div
-                                id="service-add-item-btn"
+                                id="service-add-btn"
                                 data-tour-group="service"
-                                data-tour-title="Novo Registro"
-                                data-tour-desc="Adicionar nova linha."
+                                data-tour-title="Adicionar"
+                                data-tour-desc="Adicione novas linhas ou colunas."
                                 data-tour-order="3"
                                 data-tour-align="end"
                             >
-                                <ItemForm
-                                    columns={columnsConfig}
-                                    onSave={handleCreateItem}
-                                    serviceName={activeService.name}
-                                    trigger={
-                                        <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 hover:opacity-90" style={{ backgroundColor: activeService.primary_color, color: getContrastYIQ(activeService.primary_color) }}>
-                                            <Pencil className="mr-2 h-4 w-4" />
-                                            Adicionar Item
-                                        </button>
-                                    }
-                                />
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            className="h-10 px-4 py-2 gap-2"
+                                            style={{ backgroundColor: activeService.primary_color, color: getContrastYIQ(activeService.primary_color) }}
+                                        >
+                                            <PlusCircle className="h-4 w-4" />
+                                            Adicionar
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setFormOpen(true)}>
+                                            <FileText className="mr-2 h-4 w-4" />
+                                            Nova Linha
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setAddColumnOpen(true)}>
+                                            <Columns className="mr-2 h-4 w-4" />
+                                            Nova Coluna
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                         </>
                     )}
+
                 </div>
 
                 {/* Background Decor - Optional */}
@@ -420,41 +502,105 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                 </div>
             </div>
 
-            {/* 2. MAIN CONTENT (TABLE) */}
-            <div
-                className="rounded-md border bg-white"
-                id="items-table-container"
-                data-tour-group="service"
-                data-tour-title="Tabela Inteligente"
-                data-tour-desc="Esta tabela tem superpoderes: <br/>• <b>Clique na linha</b> para expandir e ver detalhes completos.<br/>• <b>Sinalização Azul:</b> Indica dados novos ou atualizados desde sua última visita.<br/>• <b>Cabeçalhos:</b> Clique para ordenar."
-                data-tour-order="4"
-                data-tour-align="center"
-            >
-                <ItemsTable
-                    columns={columnsConfig}
-                    data={items || []}
-                    serviceId={activeService.id}
-                    onEdit={setEditingItem}
-                    onDelete={setItemToDelete}
-                    onStatusChange={(id, data) => handleUpdateItem(id, data)}
-                    primaryColor={activeService.primary_color}
-                    lastViewedAt={lastViewedAt}
-                    isLoading={serviceLoading}
-                    highlightedItemId={highlightedItemId}
-                />
-            </div>
+            {/* 2. MAIN CONTENT (MULTI-TABLE or SINGLE TABLE) */}
+            {
+                tableBlocks.length > 0 ? (
+                    // MULTI WAFFLE
+                    <div className="space-y-12">
+                        {tableBlocks.map((block: any) => {
+                            const blockColumns = getBlockColumns(block.id)
+                            const blockItems = items?.filter(i => i.table_block_id === block.id) || []
 
-            {/* Edit Dialog */}
-            {editingItem && isMounted && (
-                <ItemForm
-                    columns={columnsConfig}
-                    onSave={(data) => handleUpdateItem(editingItem.id, data)}
-                    initialData={editingItem}
-                    open={!!editingItem}
-                    onOpenChange={(open) => !open && setEditingItem(null)}
-                    serviceName={activeService.name}
-                />
-            )}
+                            return (
+                                <div key={block.id} className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-lg font-semibold text-slate-800 border-l-4 border-slate-400 pl-3">
+                                            {block.title}
+                                        </h3>
+                                    </div>
+
+                                    <div className="rounded-md border bg-white">
+                                        <ItemsTable
+                                            columns={blockColumns}
+                                            data={blockItems}
+                                            serviceId={activeService.id}
+                                            tableBlockId={block.id}
+                                            onEdit={setEditingItem}
+                                            onDelete={setItemToDelete}
+                                            onStatusChange={(id, data) => handleUpdateItem(id, data)}
+                                            primaryColor={activeService.primary_color}
+                                            lastViewedAt={lastViewedAt}
+                                            isLoading={serviceLoading}
+                                            highlightedItemId={highlightedItemId}
+                                        />
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                ) : (
+                    // SINGLE TABLE (LEGACY)
+                    <div
+                        className="rounded-md border bg-white"
+                        id="items-table-container"
+                        data-tour-group="service"
+                        data-tour-title="Tabela Inteligente"
+                        data-tour-desc="Esta tabela tem superpoderes: <br/>• <b>Clique na linha</b> para expandir e ver detalhes completos.<br/>• <b>Sinalização Azul:</b> Indica dados novos ou atualizados desde sua última visita.<br/>• <b>Cabeçalhos:</b> Clique para ordenar."
+                        data-tour-order="4"
+                        data-tour-align="center"
+                    >
+                        <ItemsTable
+                            columns={columnsConfig}
+                            data={items || []}
+                            serviceId={activeService.id}
+                            onEdit={setEditingItem}
+                            onDelete={setItemToDelete}
+                            onStatusChange={(id, data) => handleUpdateItem(id, data)}
+                            primaryColor={activeService.primary_color}
+                            lastViewedAt={lastViewedAt}
+                            isLoading={serviceLoading}
+                            highlightedItemId={highlightedItemId}
+                        />
+                    </div>
+                )
+            }
+
+            {/* Dialogs */}
+
+            {/* Add Item Form */}
+            <ItemForm
+                columns={columnsConfig}
+                onSave={(data) => handleCreateItem(data, data.table_block_id)}
+                serviceName={activeService.name}
+                tableBlocks={tableBlocks}
+                open={formOpen}
+                onOpenChange={setFormOpen}
+            />
+
+            {/* Add Column Dialog */}
+            <AddColumnDialog
+                open={addColumnOpen}
+                onOpenChange={setAddColumnOpen}
+                serviceId={activeService.id}
+                tableBlockId={targetBlockId}
+                onSuccess={() => {
+                    // Refresh logic handled by page reload in dialog for now
+                }}
+            />
+
+            {/* Edit Item Dialog */}
+            {
+                editingItem && isMounted && (
+                    <ItemForm
+                        columns={editingItem ? getBlockColumns(editingItem.table_block_id) : columnsConfig}
+                        onSave={(data) => handleUpdateItem(editingItem.id, data)}
+                        initialData={editingItem}
+                        open={!!editingItem}
+                        onOpenChange={(open) => !open && setEditingItem(null)}
+                        serviceName={activeService.name}
+                    />
+                )
+            }
 
             <ConfirmDialog
                 open={!!itemToDelete}
@@ -484,13 +630,15 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                 </div>
             </div>
 
-            {isMounted && (
-                <ServiceChatSheet
-                    serviceId={activeService.id}
-                    serviceName={activeService.name}
-                    primaryColor={activeService.primary_color}
-                />
-            )}
-        </div>
+            {
+                isMounted && (
+                    <ServiceChatSheet
+                        serviceId={activeService.id}
+                        serviceName={activeService.name}
+                        primaryColor={activeService.primary_color}
+                    />
+                )
+            }
+        </div >
     )
 }

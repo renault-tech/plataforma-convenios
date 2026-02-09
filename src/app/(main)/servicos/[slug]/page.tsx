@@ -21,7 +21,8 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
                 status,
                 grantee_type,
                 origin_group_id
-            )
+            ),
+            table_blocks (*)
         `)
         .eq("slug", slug)
 
@@ -59,12 +60,12 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         .from('items')
         .select('*') // For now select * to ensure existing components work. Optimize later.
         .eq('service_id', service.id)
-        .order('created_at', { ascending: false })
-        .limit(50) // Pagination can be added later
+        .order('created_at', { ascending: true }) // Excel style: Oldest (Top of sheet) first
 
     const initialItems = itemsData?.map(item => ({
         id: item.id,
         service_id: item.service_id,
+        table_block_id: item.table_block_id,
         created_at: item.created_at,
         ...item.data
     })) || []
