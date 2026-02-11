@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useTutorial } from "@/hooks/useTutorial"
+import { createClient } from "@/lib/supabase/client"
 import {
     Select,
     SelectContent,
@@ -96,6 +97,7 @@ function ConfiguracoesContent() {
     }, [services, pendingTab])
 
     // Cleanup activeTab if service is deleted (Skipped if we are pending a switch)
+    // Cleanup activeTab if service is deleted
     useEffect(() => {
         if (pendingTab) return // Don't cleanup if waiting for a switch
 
@@ -107,7 +109,8 @@ function ConfiguracoesContent() {
         } else if (activeTab !== "new" && services.length === 0 && !isLoading) {
             setActiveTab("new")
         }
-    }, [services, activeTab, isLoading, pendingTab])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [services, isLoading, pendingTab])
 
     const handleTabChange = (value: string) => {
         setActiveTab(value)
@@ -473,13 +476,26 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
 
 
 
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+    useEffect(() => {
+        // Get current user ID to check ownership
+        const checkUser = async () => {
+            const { data: { user } } = await createClient().auth.getUser()
+            if (user) setCurrentUserId(user.id)
+        }
+        checkUser()
+    }, [])
+
+    const isOwner = currentUserId && service.owner_id === currentUserId
+
     const handleDeleteService = () => {
         setShowDeleteConfirm(true)
     }
 
     const confirmDeleteService = async () => {
         await deleteService(service.id)
-        toast.success("Serviço excluído.")
+        // Toast is handled in context
         setShowDeleteConfirm(false)
     }
 
@@ -607,12 +623,12 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
                             </div>
 
                             <Button
-                                variant="destructive"
+                                variant={isOwner ? "destructive" : "outline"}
                                 size="sm"
                                 onClick={handleDeleteService}
-                                className="bg-red-600 hover:bg-red-700 text-white"
+                                className={isOwner ? "bg-red-600 hover:bg-red-700 text-white" : "border-amber-200 text-amber-700 hover:bg-amber-50"}
                             >
-                                Excluir Serviço
+                                {isOwner ? "Excluir Serviço" : "Sair do Serviço"}
                             </Button>
                         </div>
                     </CardHeader>
@@ -690,10 +706,13 @@ function ServiceConfigView({ serviceId, onColorChange }: { serviceId: string, on
                 open={showDeleteConfirm}
                 onOpenChange={setShowDeleteConfirm}
                 onConfirm={confirmDeleteService}
-                title={`Excluir serviço "${service.name}"?`}
-                description="Esta ação apagará TODOS os dados, itens e configurações deste serviço e não pode ser desfeita. Tem certeza absoluta?"
-                variant="destructive"
-                confirmText="Sim, excluir serviço"
+                title={isOwner ? `Excluir serviço "${service.name}"?` : `Sair do serviço "${service.name}"?`}
+                description={isOwner
+                    ? "Esta ação apagará TODOS os dados, itens e configurações deste serviço e não pode ser desfeita. Tem certeza absoluta?"
+                    : "Você perderá o acesso a esta planilha. Se quiser acessar novamente, precisará ser convidado pelo proprietário."
+                }
+                variant={isOwner ? "destructive" : "default"}
+                confirmText={isOwner ? "Sim, excluir serviço" : "Sim, sair do serviço"}
             />
         </div>
     )

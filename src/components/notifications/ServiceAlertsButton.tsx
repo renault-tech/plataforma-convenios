@@ -15,7 +15,11 @@ export function ServiceAlertsButton({ serviceId }: { serviceId: string }) {
     const supabase = createClient()
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsMounted(true)
+    }, [])
+
+    useEffect(() => {
         const controller = new AbortController()
 
         const checkRulesAndAlerts = async () => {
@@ -71,6 +75,7 @@ export function ServiceAlertsButton({ serviceId }: { serviceId: string }) {
             clearInterval(interval)
             controller.abort()
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [serviceId])
 
     if (!isMounted) return null

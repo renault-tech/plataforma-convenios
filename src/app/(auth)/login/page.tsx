@@ -31,10 +31,12 @@ export default function LoginPage() {
             if (error) {
                 if (error.message.includes("Email not confirmed")) {
                     toast.error("Email não confirmado. Verifique sua caixa de entrada.")
+                } else if (error.message.includes("Invalid login credentials")) {
+                    toast.error("Email ou senha incorretos.")
                 } else {
                     toast.error("Erro ao fazer login. Verifique suas credenciais.")
+                    console.error("Login Error:", error.message)
                 }
-                console.error(error)
             } else {
                 toast.success("Login realizado com sucesso!")
                 router.push("/")

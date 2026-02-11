@@ -263,22 +263,43 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
 
     const deleteService = async (id: string) => {
         try {
-            const { error } = await supabase
-                .from("services")
-                .delete()
-                .eq("id", id)
+            // Find service locally to check ownership (safer than making another call)
+            const serviceToDelete = services.find(s => s.id === id)
+            if (!serviceToDelete) throw new Error("Service not found locally")
 
-            if (error) throw error
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) throw new Error("No authenticated user")
+
+            const isOwner = serviceToDelete.owner_id === user.id
+
+            if (isOwner) {
+                // Owner: Full Delete
+                const { error } = await supabase
+                    .from("services")
+                    .delete()
+                    .eq("id", id)
+
+                if (error) throw error
+                toast.success("Serviço excluído permanentemente.")
+            } else {
+                // Guest: Leave (Delete Permission)
+                const { error } = await supabase
+                    .from("service_permissions")
+                    .delete()
+                    .match({ service_id: id, grantee_id: user.id }) // grantee_type 'user' is implicit by auth context usually, but match is safer
+
+                if (error) throw error
+                toast.success("Você saiu do serviço.")
+            }
 
             setServices(prev => prev.filter(s => s.id !== id))
             if (activeService?.id === id) {
                 const remaining = services.filter(s => s.id !== id)
                 setActiveService(remaining[0] || null)
             }
-            toast.success("Serviço excluído.")
         } catch (error: any) {
-            console.error("Error deleting service:", error)
-            toast.error("Erro ao excluir serviço.")
+            console.error("Error deleting/leaving service:", error)
+            toast.error("Erro ao realizar ação: " + error.message)
         }
     }
 

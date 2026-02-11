@@ -1,5 +1,8 @@
 "use client"
 
+import { ServiceHeader } from "@/components/services/ServiceHeader"
+import { ServiceNavigation } from "@/components/services/ServiceNavigation"
+
 import * as React from "react"
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
@@ -8,29 +11,16 @@ import { ItemsTable } from "@/components/services/ItemsTable"
 import { ItemForm } from "@/components/services/ItemForm"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Pencil, X, HelpCircle, PlusCircle, LayoutDashboard, Calendar as CalendarIcon, DollarSign, Activity, CheckCircle2 } from "lucide-react"
-import Link from "next/link"
-import { cn, getContrastYIQ, getLegibleTextColor } from "@/lib/utils"
+import { X, HelpCircle, LayoutDashboard, Calendar as CalendarIcon, DollarSign, Activity, CheckCircle2, PlusCircle } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
-import { ShareServiceDialog } from "@/components/services/ShareServiceDialog"
-import { ServiceInfoDialog } from "@/components/services/ServiceInfoDialog"
 import { ServiceChatTrigger } from "@/components/chat/ServiceChatTrigger"
 import { ServiceChatSheet } from "@/components/chat/ServiceChatSheet"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
-import { ServiceIcon } from "@/components/services/ServiceIcon"
 import { createItemAction, updateItemAction, deleteItemAction } from "@/app/actions/items"
 import { useTutorial } from "@/hooks/useTutorial"
-import { ServiceAlertsButton } from "@/components/notifications/ServiceAlertsButton"
-import { ExportDropdown } from "@/components/export/ExportDropdown"
 import { AddColumnDialog } from "@/components/services/AddColumnDialog"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { FileText, Columns } from "lucide-react"
 
 // Widget Imports REMOVED as requested
 
@@ -331,180 +321,36 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
     return (
         <div className="space-y-6">
 
-            {/* 0. NAVIGATION TABS (Settings Style Match) */}
-            <div className="flex flex-wrap items-center gap-3 pb-2 border-b border-transparent">
-                {services.map(service => {
-                    const isActive = service.id === activeService.id
-                    const textColor = isActive ? getContrastYIQ(service.primary_color) : undefined
+            import {ServiceHeader} from "@/components/services/ServiceHeader"
+            import {ServiceNavigation} from "@/components/services/ServiceNavigation"
 
-                    return (
-                        <Link key={service.id} href={`/servicos/${service.slug}`}>
-                            <Button
-                                variant={isActive ? "default" : "outline"}
-                                className={cn(
-                                    "h-9 px-4 rounded-full transition-colors font-medium",
-                                    isActive
-                                        ? "hover:opacity-90 border-transparent shadow-sm"
-                                        : "hover:bg-slate-100 text-slate-600 border-slate-200"
-                                )}
-                                style={isActive ? {
-                                    backgroundColor: service.primary_color,
-                                    color: textColor
-                                } : {}}
-                            >
-                                {service.name}
-                            </Button>
-                        </Link>
-                    )
-                })}
-                <Link href="/configuracoes?tab=new">
-                    <Button
-                        variant="secondary"
-                        className={cn(
-                            "h-9 px-4 rounded-full gap-2 border shadow-sm",
-                            "bg-white text-slate-900 hover:bg-slate-50 border-slate-200"
-                        )}
-                    >
-                        <PlusCircle className="h-4 w-4" />
-                        Novo Serviço
-                    </Button>
-                </Link>
-            </div>
+            // ... (other imports)
+
+            // Inside ServiceView render:
+
+            {/* 0. NAVIGATION TABS */}
+            <ServiceNavigation
+                services={services}
+                activeServiceId={activeService.id}
+            />
 
             {/* 1. HEADER & ACTIONS */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-lg border shadow-sm relative overflow-hidden">
-                <div className="flex-1 z-10">
-                    <div
-                        className="flex items-center gap-2"
-                        id="service-header-title"
-                        data-tour-group="service"
-                        data-tour-title="Aplicativo / Planilha"
-                        data-tour-desc="Este é o nome do seu aplicativo atual."
-                        data-tour-order="1"
-                    >
-                        <ServiceIcon name={activeService.icon} className="h-8 w-8 text-blue-500" />
-                        <div className="flex flex-col">
-                            {/* Display title if exists in metadata */}
-                            {activeService.metadata?.title && activeService.metadata.title.length > 0 && (
-                                <div className="text-sm font-medium text-muted-foreground mb-1">
-                                    {activeService.metadata.title.join(' ')}
-                                </div>
-                            )}
-                            {isEditingTitle ? (
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        value={titleVal}
-                                        onChange={(e) => setTitleVal(e.target.value)}
-                                        className="text-2xl font-bold border rounded px-2 py-1 max-w-[300px]"
-                                        autoFocus
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleSaveTitle()
-                                            if (e.key === 'Escape') setIsEditingTitle(false)
-                                        }}
-                                    />
-                                    <button onClick={handleSaveTitle} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">Salvar</button>
-                                    <button onClick={() => setIsEditingTitle(false)} className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded hover:bg-slate-200">Cancelar</button>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2 group">
-                                    <h1 className="text-2xl font-bold" style={{ color: getLegibleTextColor(activeService.primary_color) }}>
-                                        {activeService.name}
-                                    </h1>
-                                    <button
-                                        onClick={() => setIsEditingTitle(true)}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 rounded text-slate-400"
-                                        title="Editar nome"
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </button>
-                                    <ServiceAlertsButton serviceId={activeService.id} />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1 ml-10">
-                        {items?.length || 0} registros
-                        {activeService.shared_via && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                Compartilhado via {activeService.shared_via.type === 'group' ? 'Grupo' : 'Usuário'}
-                            </span>
-                        )}
-                    </p>
-                </div>
-                <div className="flex gap-2 w-full sm:w-auto z-10">
-                    {/* Render actions only on client */}
-                    {isMounted && (
-                        <>
-                            {/* WIDGETS BUTTON REMOVED */}
-
-                            <div id="service-info-btn">
-                                <ServiceInfoDialog service={activeService} />
-                            </div>
-
-                            <div
-                                id="service-share-btn"
-                                data-tour-group="service"
-                                data-tour-title="Compartilhar"
-                                data-tour-desc="Convide outros usuários."
-                                data-tour-order="5"
-                                data-tour-align="end"
-                            >
-                                <ShareServiceDialog service={activeService} />
-                            </div>
-
-                            <div id="service-export-btn">
-                                <ExportDropdown
-                                    context="table"
-                                    data={items}
-                                    columns={activeService.columns_config}
-                                    serviceName={activeService.name}
-                                />
-                            </div>
-
-                            {/* Unified Add Menu */}
-                            <div
-                                id="service-add-btn"
-                                data-tour-group="service"
-                                data-tour-title="Adicionar"
-                                data-tour-desc="Adicione novas linhas ou colunas."
-                                data-tour-order="3"
-                                data-tour-align="end"
-                            >
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            className="h-10 px-4 py-2 gap-2"
-                                            style={{ backgroundColor: activeService.primary_color, color: getContrastYIQ(activeService.primary_color) }}
-                                        >
-                                            <PlusCircle className="h-4 w-4" />
-                                            Adicionar
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => {
-                                            setInitialFormData(undefined)
-                                            setFormOpen(true)
-                                        }}>
-                                            <FileText className="mr-2 h-4 w-4" />
-                                            Nova Linha
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setAddColumnOpen(true)}>
-                                            <Columns className="mr-2 h-4 w-4" />
-                                            Nova Coluna
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                        </>
-                    )}
-
-                </div>
-
-                {/* Background Decor - Optional */}
-                <div className="absolute top-0 right-0 -mt-10 -mr-10 opacity-5 pointer-events-none">
-                    <ServiceIcon name={activeService.icon} className="h-64 w-64" />
-                </div>
-            </div>
+            <ServiceHeader
+                service={activeService}
+                itemsCount={items?.length || 0}
+                isEditingTitle={isEditingTitle}
+                titleVal={titleVal}
+                setTitleVal={setTitleVal}
+                setIsEditingTitle={setIsEditingTitle}
+                handleSaveTitle={handleSaveTitle}
+                isMounted={isMounted}
+                onAddRow={() => {
+                    setInitialFormData(undefined)
+                    setFormOpen(true)
+                }}
+                onAddColumn={() => setAddColumnOpen(true)}
+                items={items}
+            />
 
             {/* 2. MAIN CONTENT (MULTI-TABLE or SINGLE TABLE) */}
             {

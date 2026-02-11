@@ -68,7 +68,7 @@ export function ExportDropdown({ className, context, data, columns, serviceName 
         // We assume there's a container with id="home-widgets" or "dashboard-widgets"
         if (context === 'dashboard' && fn === generatePDF) {
             // Try specific dashboard containers
-            let containerId = document.getElementById('dashboard-widgets') ? 'dashboard-widgets' : 'home-widgets'
+            const containerId = document.getElementById('dashboard-widgets') ? 'dashboard-widgets' : 'home-widgets'
             // If not found, try body but that's risky. Let's stick to known IDs or the parent of dropdown?
             // Actually, in DashboardPage we have DndContext wrapping widgets. Let's assume we can capture the grid.
             // We need to add an ID to the grid in DashboardPage and HomePage: 'widgets-grid'

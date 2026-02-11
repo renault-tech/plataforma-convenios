@@ -26,10 +26,6 @@ export function NotificationRulesList({ serviceId }: { serviceId?: string }) {
     const [isLoading, setIsLoading] = useState(true)
     const supabase = createClient()
 
-    useEffect(() => {
-        fetchRules()
-    }, [serviceId])
-
     const fetchRules = async () => {
         setIsLoading(true)
         // Select 'slug' from services if available, assuming schema has it. 
@@ -49,6 +45,11 @@ export function NotificationRulesList({ serviceId }: { serviceId?: string }) {
         if (data) setRules(data as any)
         setIsLoading(false)
     }
+
+    useEffect(() => {
+        fetchRules()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [serviceId])
 
     const handleDelete = async (id: string) => {
         // Optimistic update
