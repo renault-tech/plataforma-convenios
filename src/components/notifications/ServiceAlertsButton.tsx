@@ -16,6 +16,8 @@ export function ServiceAlertsButton({ serviceId }: { serviceId: string }) {
 
     useEffect(() => {
         setIsMounted(true)
+        const controller = new AbortController()
+
         const checkRulesAndAlerts = async () => {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
@@ -28,17 +30,21 @@ export function ServiceAlertsButton({ serviceId }: { serviceId: string }) {
                 .single()
 
             // Check if there are configured rules
-            const { count: rulesCount } = await supabase
+            const { count: rulesCount, error: rulesError } = await supabase
                 .from('notification_rules')
                 .select('*', { count: 'exact', head: true })
                 .eq('service_id', serviceId)
 
-            setHasRules((rulesCount || 0) > 0)
+            if (!rulesError) {
+                setHasRules((rulesCount || 0) > 0)
+            }
 
             // Check for unread notifications for this service using API route
             if (service?.slug) {
                 try {
-                    const response = await fetch('/api/notifications/inbox')
+                    const response = await fetch('/api/notifications/inbox', {
+                        signal: controller.signal
+                    })
                     if (response.ok) {
                         const data = await response.json()
                         const serviceNotifs = (data.notifications || []).filter((n: any) =>
@@ -46,9 +52,11 @@ export function ServiceAlertsButton({ serviceId }: { serviceId: string }) {
                         )
                         setUnreadCount(serviceNotifs.length)
                     }
-                } catch (error) {
-                    console.error('Error fetching notifications:', error)
-                    setUnreadCount(0)
+                } catch (error: any) {
+                    if (error.name !== 'AbortError') {
+                        console.warn('Silent fetch error:', error.message)
+                        // setUnreadCount(0) - Keep previous count on error allows resilience
+                    }
                 }
             }
 
@@ -58,7 +66,11 @@ export function ServiceAlertsButton({ serviceId }: { serviceId: string }) {
 
         // Poll for updates every 30 seconds
         const interval = setInterval(checkRulesAndAlerts, 30000)
-        return () => clearInterval(interval)
+
+        return () => {
+            clearInterval(interval)
+            controller.abort()
+        }
     }, [serviceId])
 
     if (!isMounted) return null
