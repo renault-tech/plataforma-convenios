@@ -1,7 +1,22 @@
 const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+const path = require('path');
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+let supabaseUrl, supabaseKey;
+
+try {
+    const envPath = path.resolve(__dirname, '.env.local');
+    if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        const urlMatch = envContent.match(/NEXT_PUBLIC_SUPABASE_URL=(.*)/);
+        const keyMatch = envContent.match(/NEXT_PUBLIC_SUPABASE_ANON_KEY=(.*)/);
+
+        if (urlMatch) supabaseUrl = urlMatch[1].trim();
+        if (keyMatch) supabaseKey = keyMatch[1].trim();
+    }
+} catch (e) {
+    console.log('Error reading .env.local:', e);
+}
 
 if (!supabaseUrl || !supabaseKey) {
     console.log('Missing env vars');

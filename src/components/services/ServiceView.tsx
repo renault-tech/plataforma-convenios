@@ -247,12 +247,31 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
 
     // Transform service_columns from DB into columns_config format for ItemsTable
     const columnsConfig = React.useMemo(() => {
-        let cols: any[] = []
+        let dbCols: any[] = []
         if (activeService?.service_columns && Array.isArray(activeService.service_columns)) {
-            cols = activeService.service_columns.sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
-        } else {
-            cols = activeService?.columns_config || []
+            dbCols = activeService.service_columns
         }
+
+        let jsonCols: any[] = activeService?.columns_config || []
+
+        // Filter out JSON columns that are already present in DB (by name)
+        // This prevents duplication if we ever migrate fully
+        const dbNames = new Set(dbCols.map(c => c.name))
+        const uniqueJsonCols = jsonCols.filter(c => !dbNames.has(c.name))
+
+        // Combine and sort
+        let cols = [...uniqueJsonCols, ...dbCols]
+
+        // If we have mixed types, we might want to respect 'order' field from DB columns
+        // and maybe append them at the end or respect their 'order' value.
+        // For now, let's simplistic sort: existing JSON order, then DB order.
+        // Or if DB columns have 'order', use it.
+
+        cols.sort((a: any, b: any) => {
+            const orderA = a.order !== undefined ? a.order : 9999
+            const orderB = b.order !== undefined ? b.order : 9999
+            return orderA - orderB
+        })
 
         const seenIds = new Map<string, number>()
 
