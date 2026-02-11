@@ -52,10 +52,12 @@ import { Lock } from "lucide-react"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 function ConfiguracoesContent() {
-    const { services, refreshServices, updateService } = useService()
+    const { services, refreshServices, updateService, activeService } = useService()
     const [activeTab, setActiveTab] = useState<string>("new")
     const [isLoading, setIsLoading] = useState(false)
     const [showAccessControl, setShowAccessControl] = useState(false)
+    const [hasInitialized, setHasInitialized] = useState(false)
+    const [pendingTab, setPendingTab] = useState<string | null>(null) // Queue for tab switching
     const { startTutorial } = useTutorial()
 
     useEffect(() => {
@@ -74,14 +76,29 @@ function ConfiguracoesContent() {
         } else if (tabParam === 'new') {
             setActiveTab("new")
             setShowAccessControl(false)
-        } else if (services.length > 0 && activeTab === "new" && !isLoading && !showAccessControl && !tabParam) {
-            // Only default to first service if NO param is present
-            if (services.length > 0) setActiveTab(services[0].id);
+        } else if (services.length > 0 && !isLoading && !showAccessControl && !tabParam && !hasInitialized) {
+            // Auto-select active service if available, otherwise first service
+            if (activeService && services.some(s => s.id === activeService.id)) {
+                setActiveTab(activeService.id)
+            } else {
+                setActiveTab(services[0].id)
+            }
+            setHasInitialized(true)
         }
-    }, [services.length, searchParams])
+    }, [services.length, searchParams, isLoading, hasInitialized, activeService, services])
 
-    // Cleanup activeTab if service is deleted
+    // Pending Tab Logic (Safe Switching)
     useEffect(() => {
+        if (pendingTab && services.some(s => s.id === pendingTab)) {
+            setActiveTab(pendingTab)
+            setPendingTab(null)
+        }
+    }, [services, pendingTab])
+
+    // Cleanup activeTab if service is deleted (Skipped if we are pending a switch)
+    useEffect(() => {
+        if (pendingTab) return // Don't cleanup if waiting for a switch
+
         if (activeTab !== "new" && services.length > 0) {
             const exists = services.some(s => s.id === activeTab)
             if (!exists) {
@@ -90,7 +107,7 @@ function ConfiguracoesContent() {
         } else if (activeTab !== "new" && services.length === 0 && !isLoading) {
             setActiveTab("new")
         }
-    }, [services, activeTab, isLoading])
+    }, [services, activeTab, isLoading, pendingTab])
 
     const handleTabChange = (value: string) => {
         setActiveTab(value)
@@ -208,7 +225,10 @@ function ConfiguracoesContent() {
                     {/* Content Area */}
                     <div className="mt-2">
                         {activeTab === "new" ? (
-                            <CreateServiceForm onSuccess={(id) => setActiveTab(id)} />
+                            <CreateServiceForm onSuccess={(id) => {
+                                setPendingTab(id)
+                                setActiveTab(id)
+                            }} />
                         ) : (
                             <ServiceConfigView
                                 serviceId={activeTab}

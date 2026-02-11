@@ -47,138 +47,126 @@ export async function parseExcelFile(file: File): Promise<ParsedSheet[]> {
 }
 
 function detectTableBlocks(worksheet: ExcelJS.Worksheet): TableBlock[] {
+    // Generic Cell Data Structure
+    type CellData = {
+        value: any
+        numFmt?: string
+    }
+
     // Convert worksheet to array to allow lookahead
-    const rows: any[][] = []
+    const rows: CellData[][] = []
+
     // ExcelJS uses 1-based indexing for rows
     worksheet.eachRow((row, rowIndex) => {
-        const cells: any[] = []
+        const cells: CellData[] = []
         row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-            // ExcelJS uses 1-based indexing for columns
-            // We map to 0-based array index, but keep empty cells
-            cells[colNumber] = cell.value
+            let val = cell.value
+            const numFmt = cell.numFmt
+
+            // Handle ExcelJS Hyperlink object { text, hyperlink }
+            if (val && typeof val === 'object' && 'text' in val) {
+                val = (val as any).text
+            } else if (val && typeof val === 'object' && 'hyperlink' in val) {
+                val = (val as any).hyperlink
+            }
+
+            // Handle ExcelJS Formula object { formula, result }
+            if (val && typeof val === 'object' && 'formula' in val) {
+                const formulaObj = val as { result?: any }
+                val = formulaObj.result !== undefined ? formulaObj.result : null
+            }
+
+            // Handle Rich Text (array of objects)
+            if (val && typeof val === 'object' && 'richText' in val) {
+                val = (val as any).richText.map((rt: any) => rt.text).join('')
+            }
+
+            cells[colNumber] = { value: val, numFmt }
         })
         rows[rowIndex] = cells
     })
 
-    // If worksheet is empty
     if (rows.length === 0) return []
 
     const blocks: TableBlock[] = []
     let currentBlock: TableBlock | null = null
     let pendingTitle = ''
 
-    // Start from row 1 (1-based index to match ExcelJS logic in array, though array index 0 is empty/unused usually)
-    // We'll iterate up to the last row index found
-    let i = 1
+    // Helper: Count non-empty cells
+    const getNonEmptyCount = (row: CellData[]) => {
+        if (!row) return 0
+        return row.filter(c => c?.value !== null && c?.value !== undefined && c?.value !== '').length
+    }
 
+    // Helper: Determine "Block Width" by looking ahead
+    const getBlockWidth = (startIndex: number): number => {
+        let max = 0
+        let consistentCount = 0
+        for (let k = 0; k < 15; k++) {
+            const r = rows[startIndex + k]
+            if (!r) continue
+            const count = getNonEmptyCount(r)
+            if (count > max) max = count
+            if (count > 3 && count === max) consistentCount++
+            if (consistentCount >= 3) break
+        }
+        return max
+    }
+
+    let i = 1
     while (i < rows.length) {
         const currentRow = rows[i] || []
-        const nextRow = rows[i + 1] || [] // Lookahead
+        const nonEmptyCount = getNonEmptyCount(currentRow)
 
-        // Helper to get non-empty cells
-        const currentNonEmpty = currentRow.filter(c => c !== null && c !== undefined && c !== '')
-        const nextNonEmpty = nextRow.filter(c => c !== null && c !== undefined && c !== '')
-
-        // Case 1: Empty Row
-        if (currentNonEmpty.length === 0) {
-            // If we have a current block and hit empty rows, we might be ending a block
-            if (currentBlock) {
-                // Check if next row is also empty or start of new block
-                // For now, let's treat empty row as end of data for current block
-                if (currentBlock.data.length > 0) {
-                    blocks.push(currentBlock)
-                    currentBlock = null
-                }
+        // Case 1: Empty Row (Separator)
+        if (nonEmptyCount === 0) {
+            if (currentBlock && currentBlock.data.length > 0) {
+                blocks.push(currentBlock)
+                currentBlock = null
             }
             i++
             continue
         }
 
-        // Case 2: DETECT TITLE (Text row + Lookahead for Header)
-        // A row is a title if it has few cells AND a header (larger row) appears soon after.
-        // This handles consecutive title rows (e.g. "Title 1" -> "Title 2" -> Empty -> "Header")
+        const lookaheadWidth = getBlockWidth(i)
+        const uniqueValues = new Set(currentRow.filter(c => c?.value !== null && c?.value !== undefined && c?.value !== '').map(c => String(c.value))).size
+        const repetitionRatio = nonEmptyCount > 0 ? uniqueValues / nonEmptyCount : 1
+        const isNarrow = (nonEmptyCount <= 3) || (nonEmptyCount < lookaheadWidth * 0.6)
+        const isRepetitive = nonEmptyCount > 3 && repetitionRatio < 0.5
+        const isBlockWide = lookaheadWidth >= 4
 
-        // Conditions:
-        // 1. Current row matches title characteristics (<= 2 cells)
-        // 2. Lookahead finds a significantly larger row (Header) OR an Empty row (Separator) within X rows
+        // Case 2: TITLE
+        if (!currentBlock && isBlockWide && (isNarrow || isRepetitive)) {
+            let thisTitle = ""
+            const validCells = currentRow.filter(c => c?.value !== null && c?.value !== undefined && c?.value !== '')
 
-        let isTitle = false
-        const lookaheadLimit = 5
-        let foundHeader = false
-        let foundSeparator = false
-
-        if (currentNonEmpty.length > 0 && currentNonEmpty.length <= 2) {
-            // Special check: If next row is empty, it's a strong separator signal
-            if (nextNonEmpty.length === 0) {
-                isTitle = true
-                foundSeparator = true
+            if (isRepetitive) {
+                thisTitle = String(validCells[0]?.value || "").trim()
+            } else if (nonEmptyCount > 1) {
+                thisTitle = validCells.map(c => c.value).join(' ').trim()
             } else {
-                // Lookahead for Header
-                for (let k = 1; k <= lookaheadLimit; k++) {
-                    const checkRowIdx = i + k
-                    if (checkRowIdx >= rows.length) break
-
-                    const checkRow = rows[checkRowIdx] || []
-                    const checkNonEmpty = checkRow.filter(c => c !== null && c !== undefined && c !== '')
-
-                    if (checkNonEmpty.length === 0) {
-                        // Found separator before header? Ambiguous, but suggests title group
-                        foundSeparator = true
-                        isTitle = true
-                        break
-                    }
-
-                    // Header detection threshold: >= current + 2 cols (or absolute >= 3)
-                    if (checkNonEmpty.length >= Math.max(3, currentNonEmpty.length + 2)) {
-                        isTitle = true
-                        foundHeader = true
-                        break
-                    }
-
-                    // If we find another small row, continue scan
-                    if (checkNonEmpty.length <= 2) continue
-
-                    break
-                }
+                thisTitle = String(validCells[0]?.value || "").trim()
             }
-        }
-
-        if (isTitle) {
-            // Found a title
-            if (currentBlock && currentBlock.data.length > 0) {
-                blocks.push(currentBlock)
-                currentBlock = null
-            }
-
-            let thisTitle = String(currentNonEmpty[0]).trim() // Assuming title is first cell or joined
-            if (currentNonEmpty.length > 1) thisTitle = currentNonEmpty.join(' ').trim()
 
             if (pendingTitle) {
-                pendingTitle += " " + thisTitle
+                pendingTitle += " - " + thisTitle
             } else {
                 pendingTitle = thisTitle
             }
-
-            i++  // Skip this title row
+            i++
             continue
         }
 
-        // Case 3: DETECT HEADER (Start of Table)
-        // A row with multiple cells, and we don't have a current block (or just closed one)
-        // Arbitrary threshold: >= 1 column (if it didn't match title above)
-        if (!currentBlock && currentNonEmpty.length >= 1) {
-            // It's a header
-
+        // Case 3: HEADER (Start of Table)
+        if (!currentBlock) {
             const columns: ParsedColumn[] = []
             const seenNames = new Map<string, number>()
 
-            // We iterate using forEach on the sparse array to get index
-            currentRow.forEach((cellValue, idx) => {
+            currentRow.forEach((cell, idx) => {
+                const cellValue = cell?.value
                 if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
                     const originalName = String(cellValue)
-                    // Ensure unique ID
                     let id = originalName
-
                     if (seenNames.has(originalName)) {
                         const count = seenNames.get(originalName)! + 1
                         seenNames.set(originalName, count)
@@ -187,12 +175,25 @@ function detectTableBlocks(worksheet: ExcelJS.Worksheet): TableBlock[] {
                         seenNames.set(originalName, 1)
                     }
 
+                    // Initial basic type guess
+                    let type: 'text' | 'date' | 'currency' | 'number' = 'text'
+                    const lowerName = originalName.toLowerCase()
+                    const normalizedName = originalName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+
+                    if (/\b(data|date|dt|nasc|venc|inicio|fim|vigencia|assinat)\b|dt_/i.test(normalizedName)) {
+                        type = 'date'
+                    } else if (/\b(total|valor|preco|custo|orcamento|soma|fatura|repass|contrap)\b/i.test(normalizedName)) {
+                        type = 'currency'
+                    } else if (/qtd|quantidade|num|n\u00ba|numero|id|cpf|cnpj/i.test(lowerName) && !/nome|endereco/i.test(lowerName)) {
+                        type = 'text'
+                    }
+
                     columns.push({
                         id,
                         name: originalName,
-                        type: 'text',
+                        type,
                         preview: [],
-                        originalIndex: idx // Store the original index
+                        originalIndex: idx
                     })
                 }
             })
@@ -210,38 +211,181 @@ function detectTableBlocks(worksheet: ExcelJS.Worksheet): TableBlock[] {
             }
         }
 
-        // Case 4: DATA ROW
+        // Case 4: DATA
         if (currentBlock) {
             const rowData: any = {}
             let hasData = false
 
-            // Iterate the current row cells
-            currentRow.forEach((cellValue, colIdx) => {
-                // Find the column definition that corresponds to this index
+            currentRow.forEach((cell, colIdx) => {
                 const column = currentBlock!.columns.find(c => c.originalIndex === colIdx)
-
                 if (column) {
-                    rowData[column.id] = cellValue
-                    if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
-                        hasData = true
+                    let finalVal = cell.value
+
+                    // Final Safety Check: Ensure no objects leak
+                    if (finalVal && typeof finalVal === 'object') {
+                        if (finalVal instanceof Date) {
+                            // Keep Dates
+                        } else if ('result' in finalVal && finalVal.result !== undefined) {
+                            // Try to rescue formula result again if missed
+                            finalVal = finalVal.result
+                        } else if ('richText' in finalVal) {
+                            finalVal = finalVal.richText.map((rt: any) => rt.text).join('')
+                        } else if ('text' in finalVal) {
+                            finalVal = finalVal.text
+                        } else {
+                            // Last resort: If it's still an object (e.g. error object), stringify or null
+                            // If it looks like a formula error { error: "#DIV/0!" }
+                            if ('error' in finalVal) {
+                                finalVal = null // or finalVal.error
+                            } else {
+                                finalVal = null // Prevent [object Object]
+                            }
+                        }
                     }
+
+                    // Double check after rescue
+                    if (finalVal && typeof finalVal === 'object' && !(finalVal instanceof Date)) {
+                        finalVal = null
+                    }
+
+                    rowData[column.id] = finalVal
+
+                    if (finalVal !== null && finalVal !== undefined && finalVal !== '') hasData = true
                 }
             })
 
             if (hasData) {
                 currentBlock.data.push(rowData)
-                // Extend preview (legacy support)
-                // currentBlock.columns.forEach(col => { ... })
+                // We implicitly assume block.data[k] corresponds to rows[ headerRowIndex + 1 + k ]
             }
         }
 
         i++
     }
 
-    // Add last block
+    // Helper: Excel Serial Date to JS Date
+    const parseExcelDate = (serial: number): Date | null => {
+        // Excel base date: Dec 30, 1899 (dates are number of days since then)
+        // But wait, ExcelJS usually returns Date objects if formatted correctly.
+        // If it returns a number (e.g. 44386), we convert.
+        if (!serial || isNaN(serial)) return null
+        const utc_days = Math.floor(serial - 25569);
+        const utc_value = utc_days * 86400;
+        const date_info = new Date(utc_value * 1000);
+        return date_info;
+    }
+
     if (currentBlock && currentBlock.data.length > 0) {
         blocks.push(currentBlock)
     }
+
+    // POST-PROCESSING: Refine Column Types based on Data Content & Format
+    blocks.forEach(block => {
+        if (!block.headerRowIndex) return
+
+        block.columns.forEach(col => {
+            let dateCount = 0
+            let currencyCount = 0
+            let numberCount = 0
+            let fmtCurrencyCount = 0
+            let fmtDateCount = 0
+            let totalCount = 0
+
+            // Check first 10 rows for content AND format analysis
+            // block.data[k] corresponds to rows[ block.headerRowIndex + 1 + k ] (approximately, if no gaps)
+            // But wait, our 'rows' index logic in loop was i++.
+            // 'i' was strictly incrementing. 
+            // So we can assume `item index + headerRowIndex + 1` is safe IF there were no gaps inside the block.
+            // Our logic "Case 4" pushes to currentBlock.data as we iterate `i`.
+            // So yes, row index is mapping 1:1.
+
+            const checkLimit = Math.min(block.data.length, 20)
+            for (let k = 0; k < checkLimit; k++) {
+                const rowIdx = (block.headerRowIndex || 0) + k + 1 // +1 because we captured header at 'i', data starts next
+
+                // Safe check bounds
+                if (rowIdx >= rows.length) break
+
+                const cellData = rows[rowIdx][col.originalIndex!]
+                const val = cellData?.value
+                const fmt = cellData?.numFmt || ''
+
+                if (val === null || val === undefined || val === '') continue
+                totalCount++
+
+                // 1. Native Format Detection (Strong Signal)
+                // Currency: R$, $, " accounting ", or specific formats
+                // Common Excel formats: 
+                // "R$ #,##0.00", "$#,##0.00", "#,##0.00", etc.
+                if (/[R$£€¥]|accounting|currency/i.test(fmt) || fmt.includes('R$') || (fmt.includes('0.00') && !fmt.includes('year'))) {
+                    fmtCurrencyCount++
+                }
+
+                // Date: dd/mm, yyyy, etc.
+                if (/[dmy]/.test(fmt) && !/red|blue|color/i.test(fmt) && (fmt.includes('/') || fmt.includes('-'))) {
+                    fmtDateCount++
+                }
+
+                // 2. Content Detection (Backup)
+                const normalizedName = col.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+
+                if (val instanceof Date) {
+                    dateCount++
+                } else if (typeof val === 'number' && val > 20000 && val < 60000) {
+                    // Check if format hints date
+                    if (fmtDateCount > 0 || /\b(data|date|dt|nasc|venc|inicio|fim|vigencia|assinat)\b|dt_/i.test(normalizedName)) {
+                        dateCount++
+                    }
+                }
+
+                if (typeof val === 'number') {
+                    numberCount++
+                }
+            }
+
+            // Decision Logic
+            const normalizedName = col.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+            const isNameCurrency = /\b(total|valor|preco|custo|orcamento|soma|fatura|repass|contrap)\b/i.test(normalizedName)
+
+            if (totalCount > 0) {
+                // Priority 1: High Format Confidence
+                if (fmtCurrencyCount / totalCount > 0.5) {
+                    col.type = 'currency'
+                } else if (fmtDateCount / totalCount > 0.5) {
+                    col.type = 'date'
+                }
+                // Priority 2: Data + Name Confidence (Aggressive)
+                else if ((dateCount / totalCount) > 0.8) {
+                    col.type = 'date'
+                } else if (col.type === 'text' && numberCount > 0 && isNameCurrency) {
+                    col.type = 'currency'
+                }
+                // Priority 3: STRONG Name fallback
+                // If the column name implies currency/date specifically, and we have ANY numbers, force it.
+                // This overrides "Text" default.
+                else if (numberCount > 0) {
+                    if (/\b(vr|valor|repasse|contrap|total|custo|orcamento|fatura)\b/i.test(normalizedName)) {
+                        col.type = 'currency'
+                    } else if (/\b(dt|data|date|venc|inicio|fim|vigencia|assinat)\b/i.test(normalizedName)) {
+                        col.type = 'date'
+                    }
+                }
+            }
+
+            // Apply Data Conversion
+            if (col.type === 'date') {
+                block.data.forEach(row => {
+                    const val = row[col.id]
+                    if (typeof val === 'number') {
+                        const date = parseExcelDate(val)
+                        if (date) row[col.id] = date.toISOString()
+                    } else if (val instanceof Date) {
+                        row[col.id] = val.toISOString()
+                    }
+                })
+            }
+        })
+    })
 
     return blocks
 }

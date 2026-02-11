@@ -96,7 +96,7 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
         // Helper to map raw block columns to ColumnConfig
         return block.columns.map((col: any) => ({
             id: col.id || col.name,
-            label: col.name,
+            label: col.name || col.id || "Campo sem nome", // Fallback to ID if name is missing
             type: col.type,
             required: false,
             // Add options if available in future
@@ -200,7 +200,7 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
                                 </Button>
                             </div>
                         ) : (
-                            displayColumns.map((col, index) => {
+                            displayColumns.map((col: ColumnConfig, index: number) => {
                                 if (col.visible === false) return null
 
                                 // Fallback ID if missing
@@ -228,7 +228,7 @@ export function ItemForm({ columns, onSave, serviceName, initialData, open: cont
                                                             {(col.options && col.options.length > 0
                                                                 ? col.options
                                                                 : ["Pendente", "Ativo", "Em Execução", "Em Andamento", "Concluído", "Cancelado"]
-                                                            ).map((option) => (
+                                                            ).map((option: string) => (
                                                                 <SelectItem key={option} value={option}>{option}</SelectItem>
                                                             ))}
                                                         </SelectContent>

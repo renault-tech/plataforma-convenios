@@ -107,10 +107,11 @@ export async function createServiceFromImport(name: string, importData: any, col
                 // Data rows are already objects { "colId": val }
                 // We need to map them to item structure
 
-                const itemsToInsert = block.data.map((row: any) => ({
+                const itemsToInsert = block.data.map((row: any, rowIndex: number) => ({
                     service_id: service.id,
                     table_block_id: tableBlock.id,
-                    data: row
+                    data: row,
+                    row_index: rowIndex
                 }))
 
                 // Batch insert items
@@ -153,14 +154,15 @@ export async function createServiceFromImport(name: string, importData: any, col
             if (columnsError) throw columnsError
 
             // 3. Prepare Items Data
-            const itemsToInsert = itemsData.map((row: any) => {
+            const itemsToInsert = itemsData.map((row: any, index: number) => {
                 const itemData: Record<string, any> = {}
                 Object.keys(row).forEach(header => {
                     itemData[header] = row[header]
                 })
                 return {
                     service_id: service.id,
-                    data: itemData
+                    data: itemData,
+                    row_index: index  // Persist order
                 }
             })
 

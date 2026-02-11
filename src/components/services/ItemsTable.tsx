@@ -61,7 +61,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { updateColumnWidthAction as saveColumnWidth } from "@/app/actions/columns"
 
 export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onDelete, onStatusChange, primaryColor, lastViewedAt, isLoading, highlightedItemId }: ItemsTableProps) {
-    const [sorting, setSorting] = React.useState<SortingState>([])
+    const [sorting, setSorting] = React.useState<SortingState>([{ id: "row_index", desc: false }])
     const [columnSizing, setColumnSizing] = React.useState({})
     const [isHeaderSticky, setIsHeaderSticky] = React.useState(false)
 
@@ -125,21 +125,30 @@ export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onD
 
                 // Helper to render the actual content
                 const renderContent = () => {
-                    if (!value) return value
+                    let safeValue = value
+
+                    // Handle Excel Object leak (Hyperlink/RichText) - Defensive Check
+                    if (safeValue && typeof safeValue === 'object') {
+                        if ('text' in safeValue) safeValue = (safeValue as any).text
+                        else if ('hyperlink' in safeValue) safeValue = (safeValue as any).hyperlink
+                        else safeValue = JSON.stringify(safeValue)
+                    }
+
+                    if (!safeValue) return safeValue
 
                     if (col.type === "currency") {
                         return new Intl.NumberFormat("pt-BR", {
                             style: "decimal",
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
-                        }).format(Number(value) || 0)
+                        }).format(Number(safeValue) || 0)
                     }
 
-                    if (col.type === "date" && value) {
+                    if (col.type === "date" && safeValue) {
                         try {
-                            return format(new Date(value as string), "dd/MM/yyyy", { locale: ptBR })
+                            return format(new Date(safeValue as string), "dd/MM/yyyy", { locale: ptBR })
                         } catch (e) {
-                            return value
+                            return safeValue
                         }
                     }
 
@@ -147,7 +156,7 @@ export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onD
                         if (onStatusChange) {
                             return (
                                 <StatusCell
-                                    value={value as string}
+                                    value={String(safeValue)}
                                     rowId={row.original.id}
                                     columnId={col.id}
                                     options={col.options}
@@ -158,14 +167,14 @@ export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onD
                         return (
                             <span className={cn(
                                 "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2",
-                                getStatusColor(value as string)
+                                getStatusColor(String(safeValue))
                             )}>
-                                {value as React.ReactNode}
+                                {safeValue as React.ReactNode}
                             </span>
                         )
                     }
 
-                    return value
+                    return safeValue
                 }
 
                 const content = renderContent()
@@ -211,6 +220,17 @@ export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onD
                 )
             },
         }))
+
+        // Add invisible row_index column for sorting
+        baseCols.push({
+            id: "row_index",
+            accessorKey: "row_index",
+            header: "",
+            size: 0,
+            enableHiding: true,
+            sortingFn: 'basic', // Ensure numeric sort
+            cell: () => null
+        })
 
         // Add Actions Column
         if (onEdit || onDelete || dateColId) {
@@ -317,12 +337,53 @@ export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onD
         onColumnSizingChange: setColumnSizing,
         columnResizeMode: "onChange",
         enableColumnResizing: true,
+        // @ts-ignore - Valid options for preventing state reset
+        autoResetPageIndex: false,
+        // @ts-ignore
+        autoResetSorting: false,
+        // @ts-ignore
+        autoResetColumnSizing: false,
         getSortedRowModel: getSortedRowModel(),
         state: {
             sorting,
             columnSizing,
         },
     })
+
+    const autoFitColumn = (columnId: string) => {
+        const colConfig = columns.find(c => c.id === columnId)
+        if (!colConfig) return
+
+        // Calculate max width based on content
+        let maxLength = (colConfig.label || "").length
+
+        // Sample up to 50 rows for performance
+        if (!data) return
+        const sampleData = data.slice(0, 50)
+
+        sampleData.forEach(row => {
+            const val = row[columnId]
+            if (val !== undefined && val !== null) {
+                const strVal = String(val)
+                if (strVal.length > maxLength) maxLength = strVal.length
+            }
+        })
+
+        // Approximate char width + padding
+        // 8px - 10px per char is a safe bet for standard font size
+        let newWidth = Math.min(Math.max(maxLength * 10 + 24, 80), 600)
+
+        // Update local state immediately for responsiveness
+        setColumnSizing(prev => ({
+            ...prev,
+            [columnId]: newWidth
+        }))
+
+        // Save to DB
+        if (serviceId) {
+            saveColumnWidth(serviceId, tableBlockId, columnId, newWidth)
+        }
+    }
 
     return (
         <div className="rounded-md border bg-white shadow-sm">
@@ -388,6 +449,10 @@ export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onD
                                                             window.removeEventListener('touchend', onTouchEnd)
                                                         }
                                                         window.addEventListener('touchend', onTouchEnd)
+                                                    }}
+                                                    onDoubleClick={(e) => {
+                                                        e.stopPropagation()
+                                                        autoFitColumn(header.column.id)
                                                     }}
                                                     onClick={(e) => e.stopPropagation()}
                                                     className={cn(
@@ -464,7 +529,7 @@ export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onD
                                         </TableRow>
                                         {row.getIsExpanded() && (
                                             <TableRow className="hover:bg-transparent bg-slate-50/30">
-                                                <TableCell colSpan={row.getVisibleCells().length + 1} className="p-0 border-b-2 border-slate-100">
+                                                <TableCell colSpan={row.getVisibleCells().length} className="p-0 border-b-2 border-slate-100">
                                                     <RowDetails details={row.original.details} attachments={row.original.attachments} />
                                                 </TableCell>
                                             </TableRow>

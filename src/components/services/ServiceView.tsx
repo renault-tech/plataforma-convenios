@@ -53,6 +53,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
     const [formOpen, setFormOpen] = useState(false)
     const [addColumnOpen, setAddColumnOpen] = useState(false)
     const [targetBlockId, setTargetBlockId] = useState<string | undefined>(undefined)
+    const [initialFormData, setInitialFormData] = useState<any>(undefined)
 
     // Alert Settings State REMOVED (No widgets)
 
@@ -279,7 +280,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
 
             return {
                 id: finalId,
-                label: col.name, // Label keeps original name
+                label: col.name || col.id || "Campo sem nome", // Fallback to ID
                 type: col.type as any,
                 width: col.width || 150,
                 required: false
@@ -315,7 +316,7 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
 
             return {
                 id: finalId,
-                label: col.name,
+                label: col.name || col.id || "Campo sem nome", // Fallback to ID
                 type: col.type,
                 width: col.width || 150,
                 required: false
@@ -480,7 +481,10 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => setFormOpen(true)}>
+                                        <DropdownMenuItem onClick={() => {
+                                            setInitialFormData(undefined)
+                                            setFormOpen(true)
+                                        }}>
                                             <FileText className="mr-2 h-4 w-4" />
                                             Nova Linha
                                         </DropdownMenuItem>
@@ -517,6 +521,18 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                                         <h3 className="text-lg font-semibold text-slate-800 border-l-4 border-slate-400 pl-3">
                                             {block.title}
                                         </h3>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="gap-2 text-slate-500 hover:text-blue-600"
+                                            onClick={() => {
+                                                setInitialFormData({ table_block_id: block.id })
+                                                setFormOpen(true)
+                                            }}
+                                        >
+                                            <PlusCircle className="h-4 w-4" />
+                                            Adicionar Item
+                                        </Button>
                                     </div>
 
                                     <div className="rounded-md border bg-white">
@@ -574,7 +590,11 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                 serviceName={activeService.name}
                 tableBlocks={tableBlocks}
                 open={formOpen}
-                onOpenChange={setFormOpen}
+                initialData={initialFormData}
+                onOpenChange={(open) => {
+                    setFormOpen(open)
+                    if (!open) setInitialFormData(undefined)
+                }}
             />
 
             {/* Add Column Dialog */}

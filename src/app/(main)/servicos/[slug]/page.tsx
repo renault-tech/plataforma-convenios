@@ -60,7 +60,9 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
         .from('items')
         .select('*') // For now select * to ensure existing components work. Optimize later.
         .eq('service_id', service.id)
-        .order('created_at', { ascending: true }) // Excel style: Oldest (Top of sheet) first
+        .eq('service_id', service.id)
+        .order('row_index', { ascending: true, nullsFirst: false }) // Primary Sort: Excel Order
+        .order('created_at', { ascending: true }) // Fallback: Creation Time
 
     const initialItems = itemsData?.map(item => ({
         id: item.id,
