@@ -321,13 +321,6 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
     return (
         <div className="space-y-6">
 
-            import {ServiceHeader} from "@/components/services/ServiceHeader"
-            import {ServiceNavigation} from "@/components/services/ServiceNavigation"
-
-            // ... (other imports)
-
-            // Inside ServiceView render:
-
             {/* 0. NAVIGATION TABS */}
             <ServiceNavigation
                 services={services}

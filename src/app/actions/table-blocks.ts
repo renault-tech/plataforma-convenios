@@ -104,10 +104,7 @@ export async function addColumnToTableBlock(
                     name: columnDef.name,
                     type: columnDef.type,
                     order: nextOrder,
-                    options: columnDef.options // Assuming JSONB or array column exists? 
-                    // Wait, service_columns schema might not support options natively if it's strict.
-                    // Let's check schema. If not, we might fail or need migration.
-                    // For now, assume it works or ignored.
+                    ...(columnDef.options && columnDef.options.length > 0 ? { options: columnDef.options } : {})
                 })
 
             if (insertErr) throw insertErr

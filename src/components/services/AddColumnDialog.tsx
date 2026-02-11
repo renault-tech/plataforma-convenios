@@ -22,26 +22,47 @@ export function AddColumnDialog({ open, onOpenChange, serviceId, tableBlockId, o
     const [name, setName] = useState("")
     const [type, setType] = useState("text")
     const [isLoading, setIsLoading] = useState(false)
+    const [options, setOptions] = useState<string[]>([])
+    const [newOption, setNewOption] = useState("")
+
+    const handleAddOption = (e: React.KeyboardEvent | React.MouseEvent) => {
+        if ((e.type === 'keydown' && (e as React.KeyboardEvent).key !== 'Enter') || !newOption.trim()) return
+        e.preventDefault()
+        if (!options.includes(newOption.trim())) {
+            setOptions([...options, newOption.trim()])
+        }
+        setNewOption("")
+    }
+
+    const removeOption = (optToRemove: string) => {
+        setOptions(options.filter(o => o !== optToRemove))
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!name.trim()) return
+
+        // Validation for status
+        if (type === 'status' && options.length === 0) {
+            toast.error("Adicione pelo menos uma opção para o status")
+            return
+        }
 
         setIsLoading(true)
         try {
             const result = await addColumnToTableBlock(serviceId, tableBlockId, {
                 name,
                 type,
-                options: [] // TODO: Support options for status
+                options: type === 'status' ? options : []
             })
 
             if (result.success) {
                 toast.success("Coluna adicionada com sucesso!")
                 setName("")
                 setType("text")
+                setOptions([])
                 onOpenChange(false)
                 onSuccess?.()
-                // Force reload to update UI completely if needed, but context update should handle it
                 window.location.reload()
             } else {
                 toast.error("Erro ao adicionar coluna: " + result.error)
@@ -94,6 +115,39 @@ export function AddColumnDialog({ open, onOpenChange, serviceId, tableBlockId, o
                             </SelectContent>
                         </Select>
                     </div>
+
+                    {type === 'status' && (
+                        <div className="grid grid-cols-4 items-start gap-4">
+                            <Label className="text-right pt-2">Opções</Label>
+                            <div className="col-span-3 space-y-2">
+                                <div className="flex gap-2">
+                                    <Input
+                                        value={newOption}
+                                        onChange={(e) => setNewOption(e.target.value)}
+                                        onKeyDown={handleAddOption}
+                                        placeholder="Nova opção (Enter)"
+                                    />
+                                    <Button type="button" onClick={handleAddOption} variant="secondary">
+                                        +
+                                    </Button>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {options.map((opt) => (
+                                        <div key={opt} className="bg-slate-100 px-2 py-1 rounded-md text-sm flex items-center gap-1">
+                                            <span>{opt}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeOption(opt)}
+                                                className="text-slate-400 hover:text-red-500"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </form>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
