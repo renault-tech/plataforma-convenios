@@ -287,11 +287,27 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                 seenIds.set(originalId, 1)
             }
 
+            // HOTFIX: Force rename for 'valor' column in 'Planejamento 2026'
+            let label = col.name || col.id || "Campo sem nome"
+            if (originalId === 'valor' || label.toLowerCase() === 'valor') {
+                label = 'Responsável'
+            }
+            if (label.toLowerCase() === 'situacao') label = 'Situação'
+            if (label.toLowerCase() === 'obs') label = 'Observação'
+
+            // Enforce Capitalization (First letter upper)
+            label = label.charAt(0).toUpperCase() + label.slice(1)
+
+            // Auto-size width based on Header Length if not set
+            // 1 char ~= 9px
+            // Padding (24px for px-2 + gaps) + Arrow (16px) + Buffer (16px) = ~56px
+            const autoWidth = Math.max(100, (label.length * 9) + 56)
+
             return {
                 id: finalId,
-                label: col.name || col.id || "Campo sem nome", // Fallback to ID
+                label: label,
                 type: col.type as any,
-                width: col.width || 150,
+                width: col.width || autoWidth,
                 required: false
             }
         })
@@ -494,10 +510,10 @@ export function ServiceView({ initialService, initialItems }: ServiceViewProps) 
                 className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2 pointer-events-none"
                 id="service-chat-trigger-container"
                 data-tour-group="service"
-                data-tour-title="Chat da Planilha"
-                data-tour-desc="Bate-papo exclusivo desta planilha."
-                data-tour-order="2"
-                data-tour-align="end"
+                data-tour-title="Chat da Equipe"
+                data-tour-desc="Converse com sua equipe sobre esta planilha sem sair da tela. Histórico fica salvo para sempre."
+                data-tour-order="6"
+                data-tour-side="left"
             >
                 <div className="pointer-events-auto">
                     <ServiceChatTrigger

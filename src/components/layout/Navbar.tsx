@@ -129,8 +129,8 @@ export function Navbar() {
                 >
                     <FeedbackButton>
                         <Button variant="ghost" className="gap-2 text-slate-600">
-                            <MessageSquarePlus className="h-5 w-5" />
-                            <span>Feedback</span>
+                            <MessageSquarePlus className="h-5 w-5 mr-0 sm:mr-2" />
+                            <span className="hidden sm:inline">Feedback</span>
                         </Button>
                     </FeedbackButton>
                 </div>

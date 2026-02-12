@@ -84,7 +84,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { updateColumnWidthAction as saveColumnWidth } from "@/app/actions/columns"
 
 // Sortable Header Component
-function SortableHeader({ id, column, children, isHeaderSticky, isPinned }: any) {
+function SortableHeader({ id, column, children, isHeaderSticky, isPinned, ...props }: any) {
     const {
         attributes,
         listeners,
@@ -123,6 +123,7 @@ function SortableHeader({ id, column, children, isHeaderSticky, isPinned }: any)
             }}
             {...attributes}
             {...listeners}
+            {...props}
         >
             {children}
         </TableHead>
@@ -215,13 +216,13 @@ export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onD
                             onPointerDown={(e) => e.stopPropagation()} // Stop drag interaction
                             className="h-8 data-[state=open]:bg-accent hover:bg-slate-100/50 px-2"
                         >
-                            <span className="truncate max-w-[150px] block" title={col.label}>{col.label || col.id}</span>
+                            <span className="truncate block" title={col.label}>{col.label || col.id}</span>
                             {column.getIsSorted() === "asc" ? (
-                                <ArrowUp className="ml-2 h-3 w-3 flex-shrink-0" />
+                                <ArrowUp className="ml-1.5 h-3 w-3 flex-shrink-0" />
                             ) : column.getIsSorted() === "desc" ? (
-                                <ArrowDown className="ml-2 h-3 w-3 flex-shrink-0" />
+                                <ArrowDown className="ml-1.5 h-3 w-3 flex-shrink-0" />
                             ) : (
-                                <ArrowUpDown className="ml-2 h-3 w-3 opacity-50 flex-shrink-0" />
+                                <ArrowUpDown className="ml-1.5 h-3 w-3 opacity-50 flex-shrink-0 text-slate-400" />
                             )}
                         </Button>
                         {(col.type === 'date' || col.type === 'status') && (
@@ -601,6 +602,13 @@ export function ItemsTable({ columns, data, serviceId, tableBlockId, onEdit, onD
                                                     id={header.id}
                                                     column={header.column}
                                                     isHeaderSticky={isHeaderSticky}
+                                                    {...(header.index === 1 ? {
+                                                        "data-tour-group": "service",
+                                                        "data-tour-title": "Organize como quiser",
+                                                        "data-tour-desc": "Clique e arraste os títulos das colunas para mudar a ordem. O sistema salva sua preferência automaticamente!",
+                                                        "data-tour-order": "5",
+                                                        "data-tour-side": "bottom"
+                                                    } : {})}
                                                 >
                                                     {/* Render Header Content */}
                                                     {header.isPlaceholder
